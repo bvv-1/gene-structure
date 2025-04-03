@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import useSWR from 'swr'
+
 import { getStructureFromFile, getTranscriptIdFromFile } from "./utils/gff";
 
 // UIの状態を表す型
@@ -8,12 +10,39 @@ type UIState = "upload" | "generate";
 
 // 遺伝子構造情報の型を定義
 type GeneStructureInfo = {
-  transcriptId: string;
+  transcript_id: string;
   strand: string;
-  totalLength: number;
-  exonPositions: number[];
-  fivePrimeUTR: number;
-  threePrimeUTR: number;
+  total_length: number;
+  exon_positions: number[];
+  five_prime_utr: number;
+  three_prime_utr: number;
+};
+
+// APIリクエストの型定義を追加
+type GeneStructureRequest = {
+  mode: string;
+  utr_color: string;
+  exon_color: string;
+  line_color: string;
+  file_name: string;
+  gene_structure: GeneStructureInfo;
+};
+
+const postFetcher = async (url: string, data: GeneStructureRequest) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return { blob, url: window.URL.createObjectURL(blob) };
 };
 
 export default function Home() {
@@ -67,17 +96,19 @@ export default function Home() {
         await getStructureFromFile(selectedFile, transcriptId);
 
       // 構造情報をstateに保存
-      setGeneStructure({
-        transcriptId,
+      const structure = {
+        transcript_id: transcriptId,
         strand,
-        totalLength,
-        exonPositions,
-        fivePrimeUTR,
-        threePrimeUTR,
-      });
+        total_length: totalLength,
+        exon_positions: exonPositions,
+        five_prime_utr: fivePrimeUTR,
+        three_prime_utr: threePrimeUTR,
+      }
+      setGeneStructure(structure);
 
       // 処理完了後、UI状態を生成画面に変更
       setUiState("generate");
+      await handleGenerateSVG(structure);
     } catch (error) {
       console.error("Error processing file:", error);
       alert(
@@ -98,58 +129,35 @@ export default function Home() {
     document.body.removeChild(a);
   };
 
-  // const handleGeneratePDF = async () => {
-  //   if (!geneStructure) {
-  //     alert("まずファイルを処理してください");
-  //     setUiState("upload");
-  //     return;
-  //   }
+  const getRequestData = (): GeneStructureRequest | null => {
+    if (!geneStructure) return null;
+    
+    return {
+      mode: "basic",
+      utr_color: utrColor,
+      exon_color: exonColor,
+      line_color: lineColor,
+      file_name: selectedFile?.name ?? "gene_structure",
+      gene_structure: {
+        transcript_id: geneStructure.transcript_id,
+        strand: geneStructure.strand,
+        total_length: geneStructure.total_length,
+        exon_positions: geneStructure.exon_positions,
+        five_prime_utr: geneStructure.five_prime_utr,
+        three_prime_utr: geneStructure.three_prime_utr,
+      },
+    };
+  };
 
-  //   try {
-  //     setIsLoading(true);
+  // useSWRの設定を修正
+  const { data: svgData, mutate: mutateSVG } = useSWR(
+    geneStructure ? ['/api/py/generate-gene-structure-svg', getRequestData(), utrColor, exonColor, lineColor] : null,
+    ([url, data]) => postFetcher(url, data as GeneStructureRequest),
+  );
 
-  //     const response = await fetch("/api/py/generate-gene-structure", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         mode: "basic",
-  //         utr_color: utrColor,
-  //         exon_color: exonColor,
-  //         line_color: lineColor,
-  //         file_name: selectedFile?.name ?? "gene_structure",
-  //         gene_structure: {
-  //           transcript_id: geneStructure.transcriptId,
-  //           strand: geneStructure.strand,
-  //           total_length: geneStructure.totalLength,
-  //           exon_positions: geneStructure.exonPositions,
-  //           five_prime_utr: geneStructure.fivePrimeUTR,
-  //           three_prime_utr: geneStructure.threePrimeUTR,
-  //         },
-  //       }),
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error(`API error: ${response.status}`);
-  //     }
-
-  //     const pdfBlob = await response.blob();
-  //     const url = window.URL.createObjectURL(pdfBlob);
-  //     downloadFile(url, "gene_structure.pdf");
-  //     window.URL.revokeObjectURL(url);
-
-  //   } catch (error) {
-  //     console.error("Error generating PDF:", error);
-  //     alert("PDF生成中にエラーが発生しました。");
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // SVG生成用の関数を修正
-  const handleGenerateSVG = async () => {
-    if (!geneStructure) {
+  // SVG生成関数を修正
+  const handleGenerateSVG = async (structure: GeneStructureInfo | null) => {
+    if (!structure) {
       alert("まずファイルを処理してください");
       setUiState("upload");
       return;
@@ -157,46 +165,15 @@ export default function Home() {
 
     try {
       setIsLoading(true);
+      // SWRのキャッシュを更新して再フェッチをトリガー
+      await mutateSVG();
 
-      const response = await fetch("/api/py/generate-gene-structure-svg", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mode: "basic",
-          utr_color: utrColor,
-          exon_color: exonColor,
-          line_color: lineColor,
-          file_name: selectedFile?.name ?? "gene_structure",
-          gene_structure: {
-            transcript_id: geneStructure.transcriptId,
-            strand: geneStructure.strand,
-            total_length: geneStructure.totalLength,
-            exon_positions: geneStructure.exonPositions,
-            five_prime_utr: geneStructure.fivePrimeUTR,
-            three_prime_utr: geneStructure.threePrimeUTR,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      if (svgData) {
+        setDownloadUrl(svgData.url);
+        const svgText = await svgData.blob.text();
+        setSvgPreview(svgText);
+        renderSvgToCanvas(svgData.url);
       }
-
-      const svgBlob = await response.blob();
-      const url = window.URL.createObjectURL(svgBlob);
-
-      // URLを状態として保存
-      setDownloadUrl(url);
-
-      // プレビュー用にSVGを文字列として読み込む
-      const svgText = await svgBlob.text();
-      setSvgPreview(svgText);
-      
-      // SVGをcanvas要素に描画
-      renderSvgToCanvas(url);
-
     } catch (error) {
       console.error("Error generating SVG:", error);
       alert("SVG生成中にエラーが発生しました。");
@@ -255,21 +232,21 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
       <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm">
         <h1 className="text-3xl font-bold mb-6 text-center">
-          遺伝子構造可視化ツール
+          Gene Structure Visualizer
         </h1>
 
         <div className="flex flex-col items-center justify-center p-8 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold mb-4">
             {uiState === "upload"
-              ? "GFFファイルのアップロード"
-              : "遺伝子構造PDFの生成"}
+              ? "Upload GFF file"
+              : "Generate Gene Structure PDF"}
           </h2>
 
           {uiState === "upload" && (
             <div className="w-full max-w-md space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  遺伝子ID
+                  Gene ID
                 </label>
                 <input
                   type="text"
@@ -280,7 +257,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  GFFファイル
+                  GFF file
                 </label>
                 <input
                   type="file"
@@ -291,7 +268,7 @@ export default function Home() {
                 />
                 {selectedFile && (
                   <p className="mt-1 text-sm text-gray-500">
-                    選択したファイル: {selectedFile.name}
+                    Selected file: {selectedFile.name}
                   </p>
                 )}
               </div>
@@ -302,7 +279,7 @@ export default function Home() {
                   onClick={handleFileProcess}
                   disabled={isLoading || !selectedFile}
                 >
-                  {isLoading ? "処理中..." : "ファイルを処理"}
+                  {isLoading ? "Processing..." : "Process file"}
                 </button>
               </div>
             </div>
@@ -313,7 +290,7 @@ export default function Home() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    UTR色
+                    UTR Color
                   </label>
                   <input
                     type="color"
@@ -325,7 +302,7 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    エクソン色
+                    Exon Color
                   </label>
                   <input
                     type="color"
@@ -337,7 +314,7 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    ライン色
+                    Line Color
                   </label>
                   <input
                     type="color"
@@ -355,7 +332,7 @@ export default function Home() {
                     onClick={handleResetUpload}
                     disabled={isLoading}
                   >
-                    戻る
+                    Back
                   </button>
 
                   {/* <button
@@ -368,10 +345,10 @@ export default function Home() {
 
                   <button
                     className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={handleGenerateSVG}
+                    onClick={() => handleGenerateSVG(geneStructure)}
                     disabled={isLoading}
                   >
-                    {isLoading ? "処理中..." : "SVGを生成"}
+                    {isLoading ? "Processing..." : "Generate SVG"}
                   </button>
 
                   {/* ダウンロードボタン */}
@@ -380,7 +357,7 @@ export default function Home() {
                     onClick={handleDownload}
                     disabled={isLoading || !downloadUrl}
                   >
-                    ダウンロード
+                    Download
                   </button>
                 </div>
               </div>
@@ -388,7 +365,7 @@ export default function Home() {
               {/* SVGプレビュー表示用のセクション */}
               {svgPreview && (
                 <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2">遺伝子構造プレビュー</h3>
+                  <h3 className="text-lg font-medium mb-2">Gene Structure Preview</h3>
                   <div className="border border-gray-300 rounded-md p-2 bg-white">
                     <canvas
                       ref={canvasRef}
