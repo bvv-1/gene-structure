@@ -120,7 +120,7 @@ def color_convert(color16):
 
     return RGB_1
 
-@app.get("/api/py/helloFastApi")
+@app.get("/api/py/")
 def hello_fast_api():
     return {"message": "Hello from FastAPI"}
 
