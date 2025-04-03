@@ -4,6 +4,8 @@ https://gene-structure.vercel.app/
 
 https://github.com/user-attachments/assets/dea4a1d2-b128-43b8-bd30-643a94cdee6c
 
+https://github.com/user-attachments/assets/1559326f-ecc5-4355-9e0d-131ee74db1f2
+
 ## 開発環境
 
 ### 必要条件
