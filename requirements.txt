@@ -4,3 +4,4 @@ reportlab==4.0.9
 numpy==1.26.4
 python-multipart==0.0.9
 pydantic==2.6.3
+svgwrite==1.4.3

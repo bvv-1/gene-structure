@@ -30,6 +30,9 @@ export default function Home() {
     null,
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [svgPreview, setSvgPreview] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -75,9 +78,6 @@ export default function Home() {
 
       // 処理完了後、UI状態を生成画面に変更
       setUiState("generate");
-      alert(
-        "ファイルの解析が完了しました。次にPDF生成の設定を行ってください。",
-      );
     } catch (error) {
       console.error("Error processing file:", error);
       alert(
@@ -88,8 +88,67 @@ export default function Home() {
     }
   };
 
-  // PDF生成用の関数
-  const handleGeneratePDF = async () => {
+  // ダウンロード用の共通関数を追加
+  const downloadFile = (url: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  // const handleGeneratePDF = async () => {
+  //   if (!geneStructure) {
+  //     alert("まずファイルを処理してください");
+  //     setUiState("upload");
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsLoading(true);
+
+  //     const response = await fetch("/api/py/generate-gene-structure", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         mode: "basic",
+  //         utr_color: utrColor,
+  //         exon_color: exonColor,
+  //         line_color: lineColor,
+  //         file_name: selectedFile?.name ?? "gene_structure",
+  //         gene_structure: {
+  //           transcript_id: geneStructure.transcriptId,
+  //           strand: geneStructure.strand,
+  //           total_length: geneStructure.totalLength,
+  //           exon_positions: geneStructure.exonPositions,
+  //           five_prime_utr: geneStructure.fivePrimeUTR,
+  //           three_prime_utr: geneStructure.threePrimeUTR,
+  //         },
+  //       }),
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error(`API error: ${response.status}`);
+  //     }
+
+  //     const pdfBlob = await response.blob();
+  //     const url = window.URL.createObjectURL(pdfBlob);
+  //     downloadFile(url, "gene_structure.pdf");
+  //     window.URL.revokeObjectURL(url);
+
+  //   } catch (error) {
+  //     console.error("Error generating PDF:", error);
+  //     alert("PDF生成中にエラーが発生しました。");
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  // SVG生成用の関数を修正
+  const handleGenerateSVG = async () => {
     if (!geneStructure) {
       alert("まずファイルを処理してください");
       setUiState("upload");
@@ -99,18 +158,17 @@ export default function Home() {
     try {
       setIsLoading(true);
 
-      // APIエンドポイントを呼び出す
-      const response = await fetch("/api/py/generate-gene-structure", {
+      const response = await fetch("/api/py/generate-gene-structure-svg", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          gene_id: geneId,
           mode: "basic",
           utr_color: utrColor,
           exon_color: exonColor,
           line_color: lineColor,
+          file_name: selectedFile?.name ?? "gene_structure",
           gene_structure: {
             transcript_id: geneStructure.transcriptId,
             strand: geneStructure.strand,
@@ -126,38 +184,71 @@ export default function Home() {
         throw new Error(`API error: ${response.status}`);
       }
 
-      // レスポンスをBlobとして取得
-      const pdfBlob = await response.blob();
+      const svgBlob = await response.blob();
+      const url = window.URL.createObjectURL(svgBlob);
 
-      // Blobをダウンロード可能なURLに変換
-      const url = window.URL.createObjectURL(pdfBlob);
+      // URLを状態として保存
+      setDownloadUrl(url);
 
-      // リンク要素を作成してクリック（ダウンロード開始）
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "gene_structure.pdf";
-      document.body.appendChild(a);
-      a.click();
+      // プレビュー用にSVGを文字列として読み込む
+      const svgText = await svgBlob.text();
+      setSvgPreview(svgText);
+      
+      // SVGをcanvas要素に描画
+      renderSvgToCanvas(url);
 
-      // クリーンアップ
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
     } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("PDF生成中にエラーが発生しました。");
+      console.error("Error generating SVG:", error);
+      alert("SVG生成中にエラーが発生しました。");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // アップロード画面に戻る関数
+  // SVGをCanvas要素に描画する関数を修正
+  const renderSvgToCanvas = (svgUrl: string) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // 画像オブジェクトを作成
+    const img = new Image();
+    img.onload = () => {
+      // キャンバスのサイズを設定
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // SVGをキャンバスに描画
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    
+    // 画像のソースにSVGのURLを設定
+    img.src = svgUrl;
+  };
+
+  // アップロード画面に戻る関数を修正
   const handleResetUpload = () => {
+    // 既存のURLがあれば解放
+    if (downloadUrl) {
+      window.URL.revokeObjectURL(downloadUrl);
+      setDownloadUrl(null);
+    }
     setGeneStructure(null);
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
     setUiState("upload");
+  };
+
+  // ダウンロードハンドラーを修正
+  const handleDownload = () => {
+    if (downloadUrl) {
+      downloadFile(downloadUrl, "gene_structure.svg");
+    }
   };
 
   return (
@@ -257,23 +348,55 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex space-x-4 mt-4 justify-center">
-                <button
-                  className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300"
-                  onClick={handleResetUpload}
-                  disabled={isLoading}
-                >
-                  戻る
-                </button>
+              <div className="flex flex-col space-y-3 mt-4">
+                <div className="flex space-x-4 justify-center">
+                  <button
+                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300"
+                    onClick={handleResetUpload}
+                    disabled={isLoading}
+                  >
+                    戻る
+                  </button>
 
-                <button
-                  className={`bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-                  onClick={handleGeneratePDF}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "処理中..." : "遺伝子構造PDFを生成"}
-                </button>
+                  {/* <button
+                    className={`bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                    onClick={handleGeneratePDF}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "処理中..." : "PDFを生成"}
+                  </button> */}
+
+                  <button
+                    className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                    onClick={handleGenerateSVG}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "処理中..." : "SVGを生成"}
+                  </button>
+
+                  {/* ダウンロードボタン */}
+                  <button
+                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition duration-300"
+                    onClick={handleDownload}
+                    disabled={isLoading || !downloadUrl}
+                  >
+                    ダウンロード
+                  </button>
+                </div>
               </div>
+
+              {/* SVGプレビュー表示用のセクション */}
+              {svgPreview && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-2">遺伝子構造プレビュー</h3>
+                  <div className="border border-gray-300 rounded-md p-2 bg-white">
+                    <canvas
+                      ref={canvasRef}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
