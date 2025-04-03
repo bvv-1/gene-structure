@@ -22,12 +22,14 @@ sh = StreamHandler()
 sh.setLevel(INFO)
 sh.setFormatter(Formatter("%(asctime)s %(levelname)8s %(message)s"))
 
-fh = FileHandler(filename = 'geneSTRUCTURE.log', mode = 'w')
-fh.setLevel(DEBUG)
-fh.setFormatter(Formatter("%(asctime)s %(levelname)8s %(message)s"))
+# Vercel環境ではファイル書き込み権限が制限されているため、条件分岐を追加
+if os.environ.get('VERCEL') != '1':
+    fh = FileHandler(filename = 'geneSTRUCTURE.log', mode = 'w')
+    fh.setLevel(DEBUG)
+    fh.setFormatter(Formatter("%(asctime)s %(levelname)8s %(message)s"))
+    logger.addHandler(fh)
 
 logger.addHandler(sh)
-logger.addHandler(fh)
 
 # リクエストモデルの定義
 class GeneStructureRequest(BaseModel):
@@ -133,22 +135,25 @@ async def generate_gene_structure(
         # GeneStructureRequestモデルに変換
         request_model = GeneStructureRequest(**request_data)
         
+        # Vercel環境用の一時ディレクトリパスを設定
+        temp_dir = '/tmp' if os.environ.get('VERCEL') == '1' else tempfile.gettempdir()
+        
         # アップロードされたGFFファイルを一時ファイルとして保存
-        temp_gff = tempfile.NamedTemporaryFile(delete=False, suffix='.gff3')
-        temp_gff_path = temp_gff.name
+        temp_gff_path = os.path.join(temp_dir, f"temp_gff_{os.urandom(8).hex()}.gff3")
         
         try:
             contents = await gff_file.read()
             with open(temp_gff_path, 'wb') as f:
                 f.write(contents)
         except Exception as e:
-            os.unlink(temp_gff_path)
+            if os.path.exists(temp_gff_path):
+                os.unlink(temp_gff_path)
             raise HTTPException(status_code=400, detail=f"GFFファイルの読み込みに失敗しました: {str(e)}")
         
         # 一時ファイルの作成
         if not request_model.file_name:
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-            file_name = temp_file.name
+            output_path = os.path.join(temp_dir, f"output_{os.urandom(8).hex()}.pdf")
+            file_name = output_path
         else:
             file_name = request_model.file_name
 
@@ -259,7 +264,8 @@ async def generate_gene_structure(
         page.save()
         
         # 処理終了後、一時ファイルを削除
-        os.unlink(temp_gff_path)
+        if os.path.exists(temp_gff_path):
+            os.unlink(temp_gff_path)
         
         # ファイルの返却
         return FileResponse(
@@ -270,7 +276,7 @@ async def generate_gene_structure(
         
     except Exception as e:
         # エラーが発生した場合も一時ファイルを削除する
-        if 'temp_gff_path' in locals():
+        if 'temp_gff_path' in locals() and os.path.exists(temp_gff_path):
             try:
                 os.unlink(temp_gff_path)
             except:
