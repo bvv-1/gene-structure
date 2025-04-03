@@ -32,7 +32,11 @@ type ExportSettings = {
   filename: string;
 };
 
-const postFetcher = async (url: string, data: GeneStructureRequest) => {
+const postFetcher = async (url: string, data: GeneStructureRequest | null) => {
+  if (!data) {
+    throw new Error("No data provided");
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -56,6 +60,10 @@ export default function Home() {
   const [utrColor, setUtrColor] = useState("#d3d3d3");
   const [exonColor, setExonColor] = useState("#000000");
   const [lineColor, setLineColor] = useState("#000000");
+  // カラー変更時のデバウンス用
+  const [tempUtrColor, setTempUtrColor] = useState(utrColor);
+  const [tempExonColor, setTempExonColor] = useState(exonColor);
+  const [tempLineColor, setTempLineColor] = useState(lineColor);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [width, setWidth] = useState(1200);
   const [geneStructure, setGeneStructure] = useState<GeneStructureInfo | null>(
@@ -63,7 +71,7 @@ export default function Home() {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  // const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>({
@@ -166,24 +174,14 @@ export default function Home() {
     };
   };
 
-  // useSWRの設定を修正
-  const { data: svgData, mutate: mutateSVG } = useSWR<
+  const { data: svgData, mutate: mutateSVG } = useSWR(
+    ["/api/py/generate-gene-structure-svg", getRequestData()],
+    geneStructure ? () => postFetcher("/api/py/generate-gene-structure-svg", getRequestData()) : null,
     {
-      blob: Blob;
-      url: string;
+      onSuccess: (data) => {
+        renderSvgToCanvas(data.url);
+      },
     },
-    Error
-  >(
-    geneStructure
-      ? [
-          "/api/py/generate-gene-structure-svg",
-          getRequestData(),
-          utrColor,
-          exonColor,
-          lineColor,
-        ]
-      : null,
-    ([url, data]) => postFetcher(url, data as GeneStructureRequest),
   );
 
   const handleGenerateSVG = async (structure: GeneStructureInfo | null) => {
@@ -197,12 +195,6 @@ export default function Home() {
       setIsLoading(true);
       // SWRのキャッシュを更新して再フェッチをトリガー
       await mutateSVG();
-
-      if (svgData) {
-        setDownloadUrl(svgData.url);
-        const svgText = await svgData.blob.text();
-        renderSvgToCanvas(svgData.url);
-      }
     } catch (error) {
       console.error("Error generating SVG:", error);
       alert("An error occurred while generating the SVG.");
@@ -238,9 +230,8 @@ export default function Home() {
   // アップロード画面に戻る関数を拡張
   const handleResetUpload = () => {
     // 既存のURLがあれば解放
-    if (downloadUrl) {
-      window.URL.revokeObjectURL(downloadUrl);
-      setDownloadUrl(null);
+    if (svgData) {
+      window.URL.revokeObjectURL(svgData.url);
     }
     setGeneStructure(null);
     setSelectedFile(null);
@@ -252,9 +243,9 @@ export default function Home() {
 
   // ダウンロードハンドラーを修正
   const handleDownload = async () => {
-    if (!downloadUrl) return;
+    if (!svgData) return;
 
-    let finalUrl = downloadUrl;
+    let finalUrl = svgData.url;
     const finalFilename = `${exportSettings.filename}.${exportSettings.format}`;
 
     if (exportSettings.format === "png") {
@@ -278,7 +269,7 @@ export default function Home() {
           ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(true);
         };
-        img.src = downloadUrl;
+        img.src = svgData.url;
       });
 
       finalUrl = canvas.toDataURL("image/png");
@@ -375,7 +366,6 @@ export default function Home() {
           <div className="grid grid-cols-3 gap-8 mb-8">
             <div className="col-span-2">
               <div className="card p-6 flex items-center justify-center h-full">
-                {/* 可視化プレビュー領域 */}
                 <div className="w-full bg-white border border-gray-200 rounded-lg flex items-center justify-center">
                   <canvas ref={canvasRef} className="w-full" />
                 </div>
@@ -411,7 +401,8 @@ export default function Home() {
                         <input
                           type="color"
                           value={utrColor}
-                          onChange={(e) => setUtrColor(e.target.value)}
+                          onChange={(e) => setTempUtrColor(e.target.value)}
+                          onBlur={() => setUtrColor(tempUtrColor)}
                           className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
                         />
                       </div>
@@ -422,7 +413,8 @@ export default function Home() {
                         <input
                           type="color"
                           value={exonColor}
-                          onChange={(e) => setExonColor(e.target.value)}
+                          onChange={(e) => setTempExonColor(e.target.value)}
+                          onBlur={() => setExonColor(tempExonColor)}
                           className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
                         />
                       </div>
@@ -433,7 +425,8 @@ export default function Home() {
                         <input
                           type="color"
                           value={lineColor}
-                          onChange={(e) => setLineColor(e.target.value)}
+                          onChange={(e) => setTempLineColor(e.target.value)}
+                          onBlur={() => setLineColor(tempLineColor)}
                           className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
                         />
                       </div>
@@ -466,7 +459,7 @@ export default function Home() {
                   <button
                     className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
                     onClick={() => setShowExportDialog(true)}
-                    disabled={isLoading || !downloadUrl}
+                    disabled={isLoading || !svgData}
                   >
                     <i className="bx bx-download text-xl mr-2"></i>
                     <span>Export</span>
@@ -569,8 +562,7 @@ export default function Home() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
-                onClick={() => setShowExportDialog(true)}
-                disabled={isLoading || !downloadUrl}
+                onClick={() => setShowExportDialog(false)}
               >
                 <span>Cancel</span>
               </button>

@@ -69,3 +69,18 @@ body {
   border-color: #3b82f6;
   background-color: #f0f9ff;
 }
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+/* Firefoxのスタイル */
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
