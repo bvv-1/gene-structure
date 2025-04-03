@@ -1,6 +1,8 @@
 # geneSTRUCTURE
 
-https://vercel.com/bvv1s-projects/gene-structure
+https://gene-structure.vercel.app/
+
+https://github.com/user-attachments/assets/dea4a1d2-b128-43b8-bd30-643a94cdee6c
 
 ## 開発環境
 
