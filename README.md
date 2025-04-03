@@ -36,6 +36,7 @@ npm run dev
 
 ## プロジェクト構成
 
+```
 .
 ├── app/ # フロントエンド (Next.js)
 │ ├── components/ # 共通コンポーネント
@@ -50,3 +51,4 @@ npm run dev
 ├── tsconfig.json # TypeScriptの設定
 ├── next.config.js # Next.jsの設定
 ├── README.md # プロジェクトの説明
+```
