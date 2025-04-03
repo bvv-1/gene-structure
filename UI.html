@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gene Structure Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .page {
+            min-height: 100vh;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .gradient-bg {
+            background: linear-gradient(120deg, #f0f9ff, #e6f7ff);
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .file-upload {
+            border: 2px dashed #e5e7eb;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .file-upload:hover {
+            border-color: #3b82f6;
+            background-color: #f0f9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col">
+        <!-- データアップロードページ -->
+        <section id="upload" class="page gradient-bg flex flex-col">
+            <header class="mb-12">
+                <nav class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class='bx bx-dna text-4xl text-blue-600'></i>
+                        <h1 class="text-2xl font-bold ml-2 text-black">Gene Structure Visualizer</h1>
+                    </div>
+                    <div class="flex space-x-6">
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ホーム</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ドキュメント</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">サンプル</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">お問い合わせ</a>
+                    </div>
+                </nav>
+            </header>
+
+            <div class="flex-1 flex flex-col">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-black mb-4">データアップロード</h2>
+                    <p class="text-black">GFF3形式の遺伝子特徴データとNewick形式の系統樹データをアップロードしてください。</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-8 mb-8">
+                    <div class="card p-6">
+                        <h3 class="text-xl font-semibold text-black mb-4">GFF3ファイル</h3>
+                        <div class="file-upload mb-4">
+                            <i class='bx bx-cloud-upload text-5xl text-blue-500 mb-4'></i>
+                            <p class="text-black mb-2">ここにファイルをドラッグ＆ドロップ</p>
+                            <p class="text-sm text-black mb-4">または</p>
+                            <label class="btn-primary cursor-pointer">
+                                <span>ファイルを選択</span>
+                                <input type="file" class="hidden" accept=".gff,.gff3">
+                            </label>
+                        </div>
+                        <div class="text-black">
+                            <h4 class="font-medium mb-2">GFF3フォーマット例：</h4>
+                            <pre class="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
+##gff-version 3
+Chr1    TAIR10  gene    3631    5899    .       +       .       ID=AT1G01010;Name=AT1G01010
+Chr1    TAIR10  mRNA    3631    5899    .       +       .       ID=AT1G01010.1;Parent=AT1G01010
+Chr1    TAIR10  exon    3631    3913    .       +       .       Parent=AT1G01010.1
+Chr1    TAIR10  exon    3996    4276    .       +       .       Parent=AT1G01010.1</pre>
+                        </div>
+                    </div>
+
+                    <div class="card p-6">
+                        <h3 class="text-xl font-semibold text-black mb-4">Newickファイル</h3>
+                        <div class="file-upload mb-4">
+                            <i class='bx bx-cloud-upload text-5xl text-blue-500 mb-4'></i>
+                            <p class="text-black mb-2">ここにファイルをドラッグ＆ドロップ</p>
+                            <p class="text-sm text-black mb-4">または</p>
+                            <label class="btn-primary cursor-pointer">
+                                <span>ファイルを選択</span>
+                                <input type="file" class="hidden" accept=".nwk,.newick,.tre">
+                            </label>
+                        </div>
+                        <div class="text-black">
+                            <h4 class="font-medium mb-2">Newickフォーマット例：</h4>
+                            <pre class="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
+(((ADH1:0.1,ADH2:0.11):0.05,ADH3:0.22):0.2,ADH4:0.09);</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold text-black mb-4">基本設定</h3>
+                    <div class="card p-6">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-black mb-2">タイトル</label>
+                                <input type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="図のタイトル">
+                            </div>
+                            <div>
+                                <label class="block text-black mb-2">幅 (px)</label>
+                                <input type="number" class="w-full border border-gray-300 rounded-lg px-4 py-2" value="1200">
+                            </div>
+                            <div>
+                                <label class="block text-black mb-2">遺伝子特徴の色設定</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                    <option>デフォルト色彩</option>
+                                    <option>機能別色分け</option>
+                                    <option>遺伝子別色分け</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-black mb-2">表示順</label>
+                                <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                    <option>系統樹に基づく順序</option>
+                                    <option>アルファベット順</option>
+                                    <option>サイズ順</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button class="btn-primary flex items-center">
+                        <span>可視化を生成</span>
+                        <i class='bx bx-right-arrow-alt ml-2'></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 可視化プレビューページ -->
+        <section id="preview" class="page gradient-bg flex flex-col">
+            <header class="mb-12">
+                <nav class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class='bx bx-dna text-4xl text-blue-600'></i>
+                        <h1 class="text-2xl font-bold ml-2 text-black">Gene Structure Visualizer</h1>
+                    </div>
+                    <div class="flex space-x-6">
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ホーム</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ドキュメント</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">サンプル</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">お問い合わせ</a>
+                    </div>
+                </nav>
+            </header>
+
+            <div class="flex-1 flex flex-col">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-black mb-4">可視化プレビュー</h2>
+                    <p class="text-black">アップロードしたデータから生成された遺伝子構造図をプレビューできます。</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-8 mb-8">
+                    <div class="col-span-2">
+                        <div class="card p-6 flex items-center justify-center h-full">
+                            <!-- 可視化プレビュー領域 -->
+                            <div class="w-full h-96 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1589254065878-42c9da997008?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Gene Structure Visualization" class="max-w-full max-h-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="card p-6 mb-6">
+                            <h3 class="text-xl font-semibold text-black mb-4">基本設定</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-black mb-2">タイトル</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2" value="マイ遺伝子構造図">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">幅 (px)</label>
+                                    <input type="number" class="w-full border border-gray-300 rounded-lg px-4 py-2" value="1200">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">遺伝子特徴の色設定</label>
+                                    <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                        <option>デフォルト色彩</option>
+                                        <option selected>機能別色分け</option>
+                                        <option>遺伝子別色分け</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">表示順</label>
+                                    <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                        <option selected>系統樹に基づく順序</option>
+                                        <option>アルファベット順</option>
+                                        <option>サイズ順</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card p-6">
+                            <h3 class="text-xl font-semibold text-black mb-4">アクション</h3>
+                            <div class="flex flex-col space-y-3">
+                                <button class="btn-primary flex items-center justify-center">
+                                    <i class='bx bx-edit text-xl mr-2'></i>
+                                    <span>詳細編集</span>
+                                </button>
+                                <button class="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center" onclick="openExportDialog()">
+                                    <i class='bx bx-download text-xl mr-2'></i>
+                                    <span>エクスポート</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 編集インターフェースページ -->
+        <section id="edit" class="page gradient-bg flex flex-col">
+            <header class="mb-12">
+                <nav class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class='bx bx-dna text-4xl text-blue-600'></i>
+                        <h1 class="text-2xl font-bold ml-2 text-black">Gene Structure Visualizer</h1>
+                    </div>
+                    <div class="flex space-x-6">
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ホーム</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">ドキュメント</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">サンプル</a>
+                        <a href="#" class="text-black hover:text-blue-600 transition-colors">お問い合わせ</a>
+                    </div>
+                </nav>
+            </header>
+
+            <div class="flex-1 flex flex-col">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-black mb-4">詳細編集</h2>
+                    <p class="text-black">可視化された遺伝子構造図の詳細な調整を行います。</p>
+                </div>
+
+                <div class="grid grid-cols-4 gap-8 mb-8">
+                    <div class="col-span-3">
+                        <div class="card p-6 mb-6">
+                            <div class="w-full h-96 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1589254065878-42c9da997008?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Gene Structure Visualization" class="max-w-full max-h-full">
+                            </div>
+                        </div>
+
+                        <div class="card p-6">
+                            <h3 class="text-xl font-semibold text-black mb-4">図の注釈</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-black mb-2">タイトル</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2" value="マイ遺伝子構造図">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">サブタイトル</label>
+                                    <input type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="オプションのサブタイトル">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">凡例の位置</label>
+                                    <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                        <option>右側</option>
+                                        <option>左側</option>
+                                        <option>上部</option>
+                                        <option>下部</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">スケールバー</label>
+                                    <div class="flex items-center space-x-4">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" class="mr-2" checked>
+                                            <span class="text-black">表示</span>
+                                        </label>
+                                        <input type="number" class="border border-gray-300 rounded-lg px-4 py-2 w-24" value="1000">
+                                        <span class="text-black">bp</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="card p-6 mb-6">
+                            <h3 class="text-xl font-semibold text-black mb-4">遺伝子要素スタイル</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-black mb-2">エクソン</label>
+                                    <div class="flex space-x-2 mb-2">
+                                        <input type="color" class="w-10 h-10 rounded" value="#4CAF50">
+                                        <select class="flex-1 border border-gray-300 rounded-lg px-4 py-2">
+                                            <option>四角形</option>
+                                            <option>丸角四角形</option>
+                                            <option>丸</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">イントロン</label>
+                                    <div class="flex space-x-2 mb-2">
+                                        <input type="color" class="w-10 h-10 rounded" value="#9E9E9E">
+                                        <select class="flex-1 border border-gray-300 rounded-lg px-4 py-2">
+                                            <option>実線</option>
+                                            <option>点線</option>
+                                            <option>波線</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">UTR</label>
+                                    <div class="flex space-x-2 mb-2">
+                                        <input type="color" class="w-10 h-10 rounded" value="#2196F3">
+                                        <select class="flex-1 border border-gray-300 rounded-lg px-4 py-2">
+                                            <option>四角形</option>
+                                            <option>丸角四角形</option>
+                                            <option>丸</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">CDS</label>
+                                    <div class="flex space-x-2 mb-2">
+                                        <input type="color" class="w-10 h-10 rounded" value="#FF5722">
+                                        <select class="flex-1 border border-gray-300 rounded-lg px-4 py-2">
+                                            <option>四角形</option>
+                                            <option>丸角四角形</option>
+                                            <option>丸</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card p-6">
+                            <h3 class="text-xl font-semibold text-black mb-4">レイアウト</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-black mb-2">遺伝子間間隔</label>
+                                    <input type="range" class="w-full" min="10" max="100" value="30">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">系統樹表示</label>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="show-tree" class="mr-2" checked>
+                                        <label for="show-tree" class="text-black">表示する</label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">系統樹の幅</label>
+                                    <input type="range" class="w-full" min="100" max="500" value="200">
+                                </div>
+                                <div>
+                                    <label class="block text-black mb-2">フォント</label>
+                                    <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                        <option>Arial</option>
+                                        <option>Helvetica</option>
+                                        <option>Times New Roman</option>
+                                        <option>Courier New</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                    <button class="border border-gray-300 text-black hover:bg-gray-100 rounded-lg py-2 px-4 transition-colors">
+                        <span>キャンセル</span>
+                    </button>
+                    <button class="btn-primary flex items-center">
+                        <i class='bx bx-check text-xl mr-2'></i>
+                        <span>変更を適用</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- エクスポートダイアログを追加 -->
+        <div id="exportDialog" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-black">エクスポート設定</h3>
+                    <button onclick="closeExportDialog()" class="text-gray-500 hover:text-gray-700">
+                        <i class='bx bx-x text-2xl'></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-black mb-2">ファイル形式</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="format" class="mr-2" checked>
+                                <span class="text-black">SVG (ベクター画像)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="format" class="mr-2">
+                                <span class="text-black">PNG (高解像度画像)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="format" class="mr-2">
+                                <span class="text-black">PDF (印刷用)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-black mb-2">解像度 (DPI)</label>
+                        <select class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                            <option>72 (ウェブ)</option>
+                            <option selected>300 (印刷標準)</option>
+                            <option>600 (高品質印刷)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-black mb-2">背景色</label>
+                        <div class="flex space-x-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="bg" class="mr-2" checked>
+                                <span class="text-black">透明</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="bg" class="mr-2">
+                                <span class="text-black">白</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="closeExportDialog()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            キャンセル
+                        </button>
+                        <button class="btn-primary">
+                            ダウンロード
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        function openExportDialog() {
+            document.getElementById('exportDialog').classList.remove('hidden');
+        }
+
+        function closeExportDialog() {
+            document.getElementById('exportDialog').classList.add('hidden');
+        }
+        </script>
+    </div>
+</body>
+</html> 
