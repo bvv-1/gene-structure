@@ -43,8 +43,7 @@ export default function Home() {
       const uuid = crypto.randomUUID();
 
       // Vercel Blobにファイルをアップロード
-      //const uploadedBlob = await upload(`gff_files/${formattedDate}/${uuid}`, selectedFile, {
-      const uploadedBlob = await upload(uuid, selectedFile, {
+      const uploadedBlob = await upload(`gff_files/${formattedDate}/${uuid}`, selectedFile, {
         access: 'public',
         handleUploadUrl: '/api/upload-gff',
       });
