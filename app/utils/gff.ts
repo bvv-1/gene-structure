@@ -144,7 +144,7 @@ export function getTranscriptId(
     const idCol = columns[8].split(/[:;]/);
 
     if (idCol.length < 4) continue;
-    else if (idCol[3] === geneId) {
+    if (idCol[3] === geneId) {
       transcriptId = idCol[1];
       strand = columns[6];
       break; // 見つかったら終了

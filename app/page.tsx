@@ -304,7 +304,7 @@ export default function Home() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
             >
-              <i className="bx bx-cloud-upload text-5xl text-blue-500 mb-4"></i>
+              <i className="bx bx-cloud-upload text-5xl text-blue-500 mb-4"/>
               <p className="text-black mb-2">Drag and drop a GFF3 file here</p>
               <p className="text-sm text-black mb-4">or</p>
               <label className="btn-primary cursor-pointer">
@@ -346,7 +346,7 @@ export default function Home() {
               disabled={isLoading || !selectedFile}
             >
               {isLoading ? "Processing..." : "Generate Visualization"}
-              <i className="bx bx-right-arrow-alt ml-2"></i>
+              <i className="bx bx-right-arrow-alt ml-2"/>
             </button>
           </div>
         </>
@@ -379,8 +379,9 @@ export default function Home() {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-black mb-2">Width (px)</label>
+                    <label htmlFor="width" className="block text-black mb-2">Width (px)</label>
                     <input
+                      id="width"
                       type="number"
                       className="w-full border border-gray-300 rounded-lg px-4 py-2"
                       value={width}
@@ -390,15 +391,16 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-black mb-2">
+                    <p className="block text-black mb-2">
                       Gene Feature Color Settings
-                    </label>
+                    </p>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div>
-                        <label className="block text-xs text-black mb-1">
+                        <label htmlFor="utr-color" className="block text-xs text-black mb-1">
                           UTR
                         </label>
                         <input
+                          id="utr-color"
                           type="color"
                           value={utrColor}
                           onChange={(e) => setTempUtrColor(e.target.value)}
@@ -407,7 +409,7 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-black mb-1">
+                        <label htmlFor="exon-color" className="block text-xs text-black mb-1">
                           Exon
                         </label>
                         <input
@@ -419,7 +421,7 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-black mb-1">
+                        <label htmlFor="line-color" className="block text-xs text-black mb-1">
                           Line
                         </label>
                         <input
@@ -441,27 +443,30 @@ export default function Home() {
                 </h3>
                 <div className="flex flex-col space-y-3">
                   <button
+                    type="button"
                     className="btn-primary flex items-center justify-center"
                     onClick={() => handleGenerateSVG(geneStructure)}
                     disabled={isLoading}
                   >
-                    <i className="bx bx-edit text-xl mr-2"></i>
+                    <i className="bx bx-edit text-xl mr-2"/>
                     <span>{isLoading ? "Processing..." : "Regenerate"}</span>
                   </button>
                   <button
+                    type="button"
                     className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
                     onClick={handleResetUpload}
                     disabled={isLoading}
                   >
-                    <i className="bx bx-refresh text-xl mr-2"></i>
+                    <i className="bx bx-refresh text-xl mr-2"/>
                     <span>Back to Upload</span>
                   </button>
                   <button
+                    type="button"
                     className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
                     onClick={() => setShowExportDialog(true)}
                     disabled={isLoading || !svgData}
                   >
-                    <i className="bx bx-download text-xl mr-2"></i>
+                    <i className="bx bx-download text-xl mr-2"/>
                     <span>Export</span>
                   </button>
                 </div>
@@ -479,10 +484,11 @@ export default function Home() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="filename" className="block text-sm font-medium mb-1">
                   File Name
                 </label>
                 <input
+                  id="filename"
                   type="text"
                   className="w-full border rounded px-3 py-2"
                   value={exportSettings.filename}
@@ -496,10 +502,11 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="format" className="block text-sm font-medium mb-1">
                   File Format
                 </label>
                 <select
+                  id="format"
                   className="w-full border rounded px-3 py-2"
                   value={exportSettings.format}
                   onChange={(e) =>
@@ -517,7 +524,7 @@ export default function Home() {
               {exportSettings.format === "png" && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium mb-1">
+                    <label htmlFor="dpi" className="block text-sm font-medium mb-1">
                       DPI
                     </label>
                     <select
@@ -538,10 +545,11 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">
+                    <label htmlFor="background" className="block text-sm font-medium mb-1">
                       Background
                     </label>
                     <select
+                      id="background"
                       className="w-full border rounded px-3 py-2"
                       value={exportSettings.background}
                       onChange={(e) =>
@@ -561,17 +569,19 @@ export default function Home() {
 
             <div className="flex justify-end space-x-3 mt-6">
               <button
+                type="button"
                 className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
                 onClick={() => setShowExportDialog(false)}
               >
                 <span>Cancel</span>
               </button>
               <button
+                type="button"
                 className="btn-primary flex items-center justify-center"
                 onClick={handleDownload}
                 disabled={isLoading}
               >
-                <i className="bx bx-download text-xl mr-2"></i>
+                <i className="bx bx-download text-xl mr-2"/>
                 <span>{isLoading ? "Processing..." : "Download"}</span>
               </button>
             </div>
