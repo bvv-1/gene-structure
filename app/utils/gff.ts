@@ -57,13 +57,16 @@ export function getStructure(
     const columns = line.split("\t");
     if (columns.length < 9) continue; // 必要なカラム数がない場合はスキップ
 
-    const idCol = columns[8].split(/[:;]/);
+    const idMatch = columns[8].match(/ID=([^;]+)/);
+    if (columns[2] === "mRNA" && idMatch && idMatch[1] === transcriptId) {
+      totalLength =
+        (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+      continue;
+    }
 
-    if (idCol[1] === transcriptId) {
-      if (columns[2] === "mRNA") {
-        totalLength =
-          (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
-      } else if (columns[2] === "exon") {
+    const parentMatch = columns[8].match(/Parent=([^;]+)/);
+    if (parentMatch && parentMatch[1] === transcriptId) {
+      if (columns[2] === "exon") {
         exonPos.push(Number.parseInt(columns[3]));
         exonPos.push(Number.parseInt(columns[4]));
         exonLen.push(
@@ -129,12 +132,11 @@ export async function getStructureFromFile(
  * @param geneId 対象の遺伝子ID
  * @returns トランスクリプト情報、見つからない場合はtranscriptIdとstrandが空文字
  */
-export function getTranscriptId(
+export function getTranscriptIds(
   fileContent: string,
   geneId: string,
-): TranscriptInfo {
-  let transcriptId = "";
-  let strand = "";
+): TranscriptInfo[] {
+  const transcriptInfos: TranscriptInfo[] = [];
 
   // ファイル内容を行ごとに分割
   const lines = fileContent.split(/\r?\n/);
@@ -150,18 +152,17 @@ export function getTranscriptId(
 
     const columns = line.split("\t");
     if (columns.length < 9) continue; // 必要なカラム数がない場合はスキップ
+    if (columns[2] !== "mRNA") continue;
 
-    const idCol = columns[8].split(/[:;]/);
-
-    if (idCol.length < 4) continue;
-    if (idCol[3] === geneId) {
-      transcriptId = idCol[1];
-      strand = columns[6];
-      break; // 見つかったら終了
+    const idMatch = columns[8].match(/ID=([^;]+)/);
+    if (columns[8].includes(geneId) && idMatch) {
+      const transcriptId = idMatch[1];
+      const strand = columns[6];
+      transcriptInfos.push({ transcriptId, strand });
     }
   }
 
-  return { transcriptId, strand };
+  return transcriptInfos;
 }
 
 /**
@@ -192,14 +193,14 @@ export async function getTranscriptIdFromFile(
 
       try {
         const fileContent = event.target.result;
-        const result = getTranscriptId(fileContent, geneId);
+        const result = getTranscriptIds(fileContent, geneId);
 
-        if (result.transcriptId === "") {
+        if (result.length === 0) {
           reject(new Error(`遺伝子ID "${geneId}" が見つかりませんでした。`));
           return;
         }
 
-        resolve(result);
+        resolve(result[0]);
       } catch (error) {
         reject(error);
       }
@@ -266,14 +267,17 @@ export async function parseGff(file: File): Promise<GeneStructureInfo[]> {
           } else if (columns[2] === "mRNA") {
             currentTranscriptId = idCol[1];
             currentStrand = columns[6];
-            totalLength = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+            totalLength =
+              (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
           } else if (columns[2] === "exon") {
             exonPositions.push(Number.parseInt(columns[3]));
             exonPositions.push(Number.parseInt(columns[4]));
           } else if (columns[2] === "five_prime_UTR") {
-            fivePrimeUTR = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+            fivePrimeUTR =
+              (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
           } else if (columns[2] === "three_prime_UTR") {
-            threePrimeUTR = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+            threePrimeUTR =
+              (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
           }
         }
 

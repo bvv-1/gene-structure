@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { getStructure, getTranscriptId } from "./gff";
+import { getStructure, getTranscriptIds } from "./gff";
 
 describe("GFFユーティリティ関数のテスト", () => {
   let gffContent: string;
@@ -19,18 +19,19 @@ describe("GFFユーティリティ関数のテスト", () => {
     test("有効な遺伝子IDからトランスクリプトIDとストランドを取得する", () => {
       // 実際のSorghum bicolorのGFFファイルに存在する遺伝子IDを使用
       const geneId = "SORBI_3001G000100";
-      const { transcriptId, strand } = getTranscriptId(gffContent, geneId);
+      const transcriptIds = getTranscriptIds(gffContent, geneId);
+      console.log(transcriptIds);
 
-      expect(transcriptId).not.toBe("");
-      expect(["+", "-"]).toContain(strand);
+      expect(transcriptIds.length).toBe(1);
+      expect(transcriptIds[0].transcriptId).toBe("transcript:EER90453");
+      expect(transcriptIds[0].strand).toBe("+");
     });
 
     test("存在しない遺伝子IDの場合は空の結果を返す", () => {
       const geneId = "存在しない遺伝子ID";
-      const { transcriptId, strand } = getTranscriptId(gffContent, geneId);
+      const transcriptIds = getTranscriptIds(gffContent, geneId);
 
-      expect(transcriptId).toBe("");
-      expect(strand).toBe("");
+      expect(transcriptIds.length).toBe(0);
     });
   });
 
@@ -38,11 +39,11 @@ describe("GFFユーティリティ関数のテスト", () => {
     test("有効なトランスクリプトIDから構造情報を取得する", () => {
       // 最初に遺伝子IDからトランスクリプトIDを取得
       const geneId = "SORBI_3001G000100";
-      const { transcriptId } = getTranscriptId(gffContent, geneId);
+      const transcriptIds = getTranscriptIds(gffContent, geneId);
 
       // トランスクリプトIDから構造情報を取得
       const { totalLength, exonPositions, fivePrimeUTR, threePrimeUTR } =
-        getStructure(gffContent, transcriptId);
+        getStructure(gffContent, transcriptIds[0].transcriptId);
 
       expect(totalLength).toBeGreaterThan(0);
       expect(exonPositions.length).toBeGreaterThan(0);
