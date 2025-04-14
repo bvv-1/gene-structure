@@ -1,3 +1,13 @@
+export type GeneStructureInfo = {
+  gene_id: string;
+  transcript_id: string;
+  strand: string;
+  total_length: number;
+  exon_positions: number[];
+  five_prime_utr: number;
+  three_prime_utr: number;
+};
+
 /**
  * トランスクリプト構造の情報を表すインターフェース
  */
@@ -190,6 +200,96 @@ export async function getTranscriptIdFromFile(
         }
 
         resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error("ファイルの読み込み中にエラーが発生しました"));
+    };
+
+    reader.readAsText(file);
+  });
+}
+
+export async function parseGff(file: File): Promise<GeneStructureInfo[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      if (!event.target || typeof event.target.result !== "string") {
+        reject(new Error("ファイルの読み込みに失敗しました"));
+        return;
+      }
+
+      try {
+        const fileContent = event.target.result;
+        const lines = fileContent.split(/\r?\n/);
+        const geneStructures: GeneStructureInfo[] = [];
+
+        let currentGeneId = "";
+        let currentTranscriptId = "";
+        let currentStrand = "";
+        let exonPositions: number[] = [];
+        let fivePrimeUTR = 0;
+        let threePrimeUTR = 0;
+        let totalLength = 0;
+
+        for (const line of lines) {
+          if (line.startsWith("#") || line.trim() === "") {
+            continue;
+          }
+
+          const columns = line.split("\t");
+          if (columns.length < 9) continue;
+
+          const idCol = columns[8].split(/[:;]/);
+
+          if (columns[2] === "gene") {
+            if (currentGeneId) {
+              geneStructures.push({
+                gene_id: currentGeneId,
+                transcript_id: currentTranscriptId,
+                strand: currentStrand,
+                total_length: totalLength,
+                exon_positions: exonPositions,
+                five_prime_utr: fivePrimeUTR,
+                three_prime_utr: threePrimeUTR,
+              });
+            }
+            currentGeneId = idCol[1];
+            exonPositions = [];
+            fivePrimeUTR = 0;
+            threePrimeUTR = 0;
+            totalLength = 0;
+          } else if (columns[2] === "mRNA") {
+            currentTranscriptId = idCol[1];
+            currentStrand = columns[6];
+            totalLength = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+          } else if (columns[2] === "exon") {
+            exonPositions.push(Number.parseInt(columns[3]));
+            exonPositions.push(Number.parseInt(columns[4]));
+          } else if (columns[2] === "five_prime_UTR") {
+            fivePrimeUTR = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+          } else if (columns[2] === "three_prime_UTR") {
+            threePrimeUTR = (Number.parseInt(columns[4]) - Number.parseInt(columns[3])) / 10;
+          }
+        }
+
+        if (currentGeneId) {
+          geneStructures.push({
+            gene_id: currentGeneId,
+            transcript_id: currentTranscriptId,
+            strand: currentStrand,
+            total_length: totalLength,
+            exon_positions: exonPositions,
+            five_prime_utr: fivePrimeUTR,
+            three_prime_utr: threePrimeUTR,
+          });
+        }
+
+        resolve(geneStructures);
       } catch (error) {
         reject(error);
       }

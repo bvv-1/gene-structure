@@ -2,19 +2,16 @@
 
 import { useRef, useState } from "react";
 import useSWR from "swr";
+import Fuse from "fuse.js";
 
-import { getStructureFromFile, getTranscriptIdFromFile } from "./utils/gff";
+import {
+  getStructureFromFile,
+  getTranscriptIdFromFile,
+  parseGff,
+  type GeneStructureInfo,
+} from "./utils/gff";
 
 type UIState = "upload" | "preview";
-
-type GeneStructureInfo = {
-  transcript_id: string;
-  strand: string;
-  total_length: number;
-  exon_positions: number[];
-  five_prime_utr: number;
-  three_prime_utr: number;
-};
 
 type GeneStructureRequest = {
   mode: string;
@@ -66,6 +63,7 @@ export default function Home() {
   const [tempLineColor, setTempLineColor] = useState(lineColor);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [width, setWidth] = useState(1200);
+  const [parsedGff, setParsedGff] = useState<GeneStructureInfo[]>([]);
   const [geneStructure, setGeneStructure] = useState<GeneStructureInfo | null>(
     null,
   );
@@ -81,9 +79,23 @@ export default function Home() {
     filename: "gene_structure",
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fuse = new Fuse(parsedGff, {
+    includeScore: true,
+    threshold: 0.2,
+  });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
+      // setIsLoading(true);
+      // try {
+      //   const gffData = await parseGff(e.target.files[0]);
+      //   setParsedGff(gffData);
+      // } catch (error) {
+      //   alert(`Error parsing GFF file: ${error}`);
+      // } finally {
+      //   setIsLoading(false);
+      // }
     }
   };
 
@@ -97,12 +109,21 @@ export default function Home() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setSelectedFile(e.dataTransfer.files[0]);
+      setIsLoading(true);
+      try {
+        const gffData = await parseGff(e.dataTransfer.files[0]);
+        setParsedGff(gffData);
+      } catch (error) {
+        alert(`Error parsing GFF file: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -132,6 +153,7 @@ export default function Home() {
 
       // 構造情報をstateに保存
       const structure = {
+        gene_id: geneId,
         transcript_id: transcriptId,
         strand,
         total_length: totalLength,
@@ -163,20 +185,16 @@ export default function Home() {
       exon_color: exonColor,
       line_color: lineColor,
       file_name: selectedFile?.name ?? "gene_structure",
-      gene_structure: {
-        transcript_id: geneStructure.transcript_id,
-        strand: geneStructure.strand,
-        total_length: geneStructure.total_length,
-        exon_positions: geneStructure.exon_positions,
-        five_prime_utr: geneStructure.five_prime_utr,
-        three_prime_utr: geneStructure.three_prime_utr,
-      },
+      gene_structure: geneStructure,
     };
   };
 
   const { data: svgData, mutate: mutateSVG } = useSWR(
     ["/api/py/generate-gene-structure-svg", getRequestData()],
-    geneStructure ? () => postFetcher("/api/py/generate-gene-structure-svg", getRequestData()) : null,
+    geneStructure
+      ? () =>
+          postFetcher("/api/py/generate-gene-structure-svg", getRequestData())
+      : null,
     {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
@@ -235,6 +253,7 @@ export default function Home() {
     }
     setGeneStructure(null);
     setSelectedFile(null);
+    setParsedGff([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -295,46 +314,69 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="card p-6 mb-8 bg-white rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold text-black mb-4">GFF3 File</h3>
-            <div
-              className={`file-upload mb-4 ${dragActive ? "border-blue-500 bg-blue-50" : ""}`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
-              <i className="bx bx-cloud-upload text-5xl text-blue-500 mb-4"/>
-              <p className="text-black mb-2">Drag and drop a GFF3 file here</p>
-              <p className="text-sm text-black mb-4">or</p>
-              <label className="btn-primary cursor-pointer">
-                <span>Select a file</span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".gff,.gff3"
-                  onChange={handleFileChange}
-                  ref={fileInputRef}
-                />
-              </label>
-              {selectedFile && (
-                <p className="mt-4 text-black">
-                  Selected file: {selectedFile.name}
+          <div className="flex flex-row gap-4">
+            <div className="card p-6 mb-8 bg-white rounded-lg shadow-md flex-1">
+              <h3 className="text-xl font-semibold text-black mb-4">
+                Upload File
+              </h3>
+              <div
+                className={`file-upload mb-4 ${dragActive ? "border-blue-500 bg-blue-50" : ""}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <i className="bx bx-cloud-upload text-5xl text-blue-500 mb-4" />
+                <p className="text-black mb-2">
+                  Drag and drop a GFF3 file here
                 </p>
-              )}
+                <p className="text-sm text-black mb-4">or</p>
+                <label className="btn-primary cursor-pointer">
+                  <span>Select a file</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".gff,.gff3"
+                    onChange={handleFileChange}
+                    ref={fileInputRef}
+                  />
+                </label>
+                {selectedFile && (
+                  <p className="mt-4 text-black">
+                    Selected file: {selectedFile.name}
+                  </p>
+                )}
+              </div>
+              <div className="text-black">
+                <h4 className="font-medium mb-2">Example GFF3 Format:</h4>
+                <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
+                  ##gff-version 3<br />
+                  Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
+                  <br />
+                  Chr1 TAIR10 mRNA 3631 5899 . + .
+                  ID=AT1G01010.1;Parent=AT1G01010
+                  <br />
+                  Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
+                  <br />
+                  Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1
+                </pre>
+              </div>
             </div>
-            <div className="text-black">
-              <h4 className="font-medium mb-2">Example GFF3 Format:</h4>
-              <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
-                ##gff-version 3<br />
-                Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
-                <br />
-                Chr1 TAIR10 mRNA 3631 5899 . + . ID=AT1G01010.1;Parent=AT1G01010
-                <br />
-                Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
-                <br />
-                Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1
-              </pre>
+
+            <div className="card p-6 mb-8 bg-white rounded-lg shadow-md">
+              <h3 className="text-xl font-semibold text-black mb-4">
+                Select Gene ID
+              </h3>
+
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="Enter gene ID"
+                value={geneId}
+                onChange={(e) => setGeneId(e.target.value)}
+              />
+
+              {/* 選ばれたgene id */}
             </div>
           </div>
 
@@ -346,7 +388,7 @@ export default function Home() {
               disabled={isLoading || !selectedFile}
             >
               {isLoading ? "Processing..." : "Generate Visualization"}
-              <i className="bx bx-right-arrow-alt ml-2"/>
+              <i className="bx bx-right-arrow-alt ml-2" />
             </button>
           </div>
         </>
@@ -379,7 +421,9 @@ export default function Home() {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="width" className="block text-black mb-2">Width (px)</label>
+                    <label htmlFor="width" className="block text-black mb-2">
+                      Width (px)
+                    </label>
                     <input
                       id="width"
                       type="number"
@@ -396,7 +440,10 @@ export default function Home() {
                     </p>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div>
-                        <label htmlFor="utr-color" className="block text-xs text-black mb-1">
+                        <label
+                          htmlFor="utr-color"
+                          className="block text-xs text-black mb-1"
+                        >
                           UTR
                         </label>
                         <input
@@ -409,7 +456,10 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="exon-color" className="block text-xs text-black mb-1">
+                        <label
+                          htmlFor="exon-color"
+                          className="block text-xs text-black mb-1"
+                        >
                           Exon
                         </label>
                         <input
@@ -421,7 +471,10 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="line-color" className="block text-xs text-black mb-1">
+                        <label
+                          htmlFor="line-color"
+                          className="block text-xs text-black mb-1"
+                        >
                           Line
                         </label>
                         <input
@@ -448,7 +501,7 @@ export default function Home() {
                     onClick={() => handleGenerateSVG(geneStructure)}
                     disabled={isLoading}
                   >
-                    <i className="bx bx-edit text-xl mr-2"/>
+                    <i className="bx bx-edit text-xl mr-2" />
                     <span>{isLoading ? "Processing..." : "Regenerate"}</span>
                   </button>
                   <button
@@ -457,7 +510,7 @@ export default function Home() {
                     onClick={handleResetUpload}
                     disabled={isLoading}
                   >
-                    <i className="bx bx-refresh text-xl mr-2"/>
+                    <i className="bx bx-refresh text-xl mr-2" />
                     <span>Back to Upload</span>
                   </button>
                   <button
@@ -466,7 +519,7 @@ export default function Home() {
                     onClick={() => setShowExportDialog(true)}
                     disabled={isLoading || !svgData}
                   >
-                    <i className="bx bx-download text-xl mr-2"/>
+                    <i className="bx bx-download text-xl mr-2" />
                     <span>Export</span>
                   </button>
                 </div>
@@ -484,7 +537,10 @@ export default function Home() {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="filename" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="filename"
+                  className="block text-sm font-medium mb-1"
+                >
                   File Name
                 </label>
                 <input
@@ -502,7 +558,10 @@ export default function Home() {
               </div>
 
               <div>
-                <label htmlFor="format" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="format"
+                  className="block text-sm font-medium mb-1"
+                >
                   File Format
                 </label>
                 <select
@@ -524,7 +583,10 @@ export default function Home() {
               {exportSettings.format === "png" && (
                 <>
                   <div>
-                    <label htmlFor="dpi" className="block text-sm font-medium mb-1">
+                    <label
+                      htmlFor="dpi"
+                      className="block text-sm font-medium mb-1"
+                    >
                       DPI
                     </label>
                     <select
@@ -545,7 +607,10 @@ export default function Home() {
                   </div>
 
                   <div>
-                    <label htmlFor="background" className="block text-sm font-medium mb-1">
+                    <label
+                      htmlFor="background"
+                      className="block text-sm font-medium mb-1"
+                    >
                       Background
                     </label>
                     <select
@@ -581,7 +646,7 @@ export default function Home() {
                 onClick={handleDownload}
                 disabled={isLoading}
               >
-                <i className="bx bx-download text-xl mr-2"/>
+                <i className="bx bx-download text-xl mr-2" />
                 <span>{isLoading ? "Processing..." : "Download"}</span>
               </button>
             </div>
