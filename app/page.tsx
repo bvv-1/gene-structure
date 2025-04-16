@@ -5,9 +5,9 @@ import useSWR from "swr";
 import Fuse from "fuse.js";
 
 import {
-  getStructureFromFile,
-  getTranscriptIdFromFile,
   parseGff,
+  getmRNAs,
+  getGeneStructureInfo,
   type GeneStructureInfo,
 } from "./utils/gff";
 
@@ -63,10 +63,7 @@ export default function Home() {
   const [tempLineColor, setTempLineColor] = useState(lineColor);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [width, setWidth] = useState(1200);
-  const [parsedGff, setParsedGff] = useState<GeneStructureInfo[]>([]);
-  const [geneStructure, setGeneStructure] = useState<GeneStructureInfo | null>(
-    null,
-  );
+  const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -79,7 +76,7 @@ export default function Home() {
     filename: "gene_structure",
   });
 
-  const fuse = new Fuse(parsedGff, {
+  const fuse = new Fuse(geneStructures, {
     includeScore: true,
     threshold: 0.2,
   });
@@ -118,7 +115,9 @@ export default function Home() {
       setIsLoading(true);
       try {
         const gffData = await parseGff(e.dataTransfer.files[0]);
-        setParsedGff(gffData);
+        const mRNAs = getmRNAs(gffData);
+        const geneStructureInfo = getGeneStructureInfo(mRNAs);
+        setGeneStructures(geneStructureInfo);
       } catch (error) {
         alert(`Error parsing GFF file: ${error}`);
       } finally {
@@ -137,35 +136,9 @@ export default function Home() {
     try {
       setIsLoading(true);
 
-      // 遺伝子IDからトランスクリプトIDとストランドを取得
-      const { transcriptId, strand } = await getTranscriptIdFromFile(
-        selectedFile,
-        geneId,
-      );
-
-      if (!transcriptId) {
-        throw new Error(`The specified gene ID "${geneId}" was not found.`);
-      }
-
-      // トランスクリプトの構造情報を取得
-      const { totalLength, exonPositions, fivePrimeUTR, threePrimeUTR } =
-        await getStructureFromFile(selectedFile, transcriptId);
-
-      // 構造情報をstateに保存
-      const structure = {
-        gene_id: geneId,
-        transcript_id: transcriptId,
-        strand,
-        total_length: totalLength,
-        exon_positions: exonPositions,
-        five_prime_utr: fivePrimeUTR,
-        three_prime_utr: threePrimeUTR,
-      };
-      setGeneStructure(structure);
-
       // 処理完了後、UI状態を生成画面に変更
       setUiState("preview");
-      await handleGenerateSVG(structure);
+      await handleGenerateSVG(geneStructures[0]);
     } catch (error) {
       console.error("Error processing file:", error);
       alert(
@@ -177,21 +150,22 @@ export default function Home() {
   };
 
   const getRequestData = (): GeneStructureRequest | null => {
-    if (!geneStructure) return null;
+    if (geneStructures.length === 0) return null;
 
+    console.log(geneStructures[0]);
     return {
       mode: "basic",
       utr_color: utrColor,
       exon_color: exonColor,
       line_color: lineColor,
       file_name: selectedFile?.name ?? "gene_structure",
-      gene_structure: geneStructure,
+      gene_structure: geneStructures[0],
     };
   };
 
   const { data: svgData, mutate: mutateSVG } = useSWR(
     ["/api/py/generate-gene-structure-svg", getRequestData()],
-    geneStructure
+    geneStructures
       ? () =>
           postFetcher("/api/py/generate-gene-structure-svg", getRequestData())
       : null,
@@ -251,9 +225,8 @@ export default function Home() {
     if (svgData) {
       window.URL.revokeObjectURL(svgData.url);
     }
-    setGeneStructure(null);
+    setGeneStructures([]);
     setSelectedFile(null);
-    setParsedGff([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -280,12 +253,14 @@ export default function Home() {
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
 
-          if (exportSettings.background === "white") {
-            ctx!.fillStyle = "white";
-            ctx!.fillRect(0, 0, canvas.width, canvas.height);
-          }
+          if (ctx) {
+            if (exportSettings.background === "white") {
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
 
-          ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          }
           resolve(true);
         };
         img.src = svgData.url;
@@ -498,7 +473,7 @@ export default function Home() {
                   <button
                     type="button"
                     className="btn-primary flex items-center justify-center"
-                    onClick={() => handleGenerateSVG(geneStructure)}
+                    onClick={() => handleGenerateSVG(geneStructures[0])}
                     disabled={isLoading}
                   >
                     <i className="bx bx-edit text-xl mr-2" />

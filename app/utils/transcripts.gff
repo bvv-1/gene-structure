@@ -1,0 +1,120 @@
+chr01	irgsp1_rep	mRNA	2983	10815	.	+	.	ID=Os01t0100100-01;Name=Os01t0100100-01;Locus_id=Os01g0100100;Note=RabGAP/TBC domain containing protein.;Transcript_evidence=AK242339;ORF_evidence=Q655M0 (UniProt);InterPro=Rab-GAP-TBC domain (IPR000195),Rab-GAP-TBC domain superfamily (IPR035969)
+chr01	irgsp1_rep	five_prime_UTR	2983	3268	.	+	.	Parent=Os01t0100100-01
+chr01	irgsp1_rep	five_prime_UTR	3354	3448	.	+	.	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	3449	3616	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	4357	4455	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	5457	5560	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	7136	7944	.	+	1	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	8028	8150	.	+	2	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	8232	8320	.	+	2	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	8408	8608	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	9210	9615	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	10102	10187	.	+	2	Parent=Os01t0100100-01
+chr01	irgsp1_rep	CDS	10274	10297	.	+	0	Parent=Os01t0100100-01
+chr01	irgsp1_rep	three_prime_UTR	10298	10430	.	+	.	Parent=Os01t0100100-01
+chr01	irgsp1_rep	three_prime_UTR	10504	10815	.	+	.	Parent=Os01t0100100-01
+chr01	irgsp1_rep	mRNA	11218	12435	.	+	.	ID=Os01t0100200-01;Name=Os01t0100200-01;Locus_id=Os01g0100200;Note=Conserved hypothetical protein.;Transcript_evidence=AK059894;ORF_evidence=B8ACR2 (UniProt)
+chr01	irgsp1_rep	five_prime_UTR	11218	11797	.	+	.	Parent=Os01t0100200-01
+chr01	irgsp1_rep	CDS	11798	12060	.	+	0	Parent=Os01t0100200-01
+chr01	irgsp1_rep	CDS	12152	12317	.	+	1	Parent=Os01t0100200-01
+chr01	irgsp1_rep	three_prime_UTR	12318	12435	.	+	.	Parent=Os01t0100200-01
+chr01	irgsp1_rep	mRNA	11372	12284	.	-	.	ID=Os01t0100300-00;Name=Os01t0100300-00;Locus_id=Os01g0100300;Note=Cytochrome P450 domain containing protein.;Transcript_evidence=AK365211;ORF_evidence=B9EYQ3 (UniProt);GO=Molecular Function: heme binding (GO:0020037),Molecular Function: iron ion binding (GO:0005506),Molecular Function: monooxygenase activity (GO:0004497),Molecular Function: oxidoreductase activity%2C acting on paired donors%2C with incorporation or reduction of molecular oxygen (GO:0016705);InterPro=Cytochrome P450 (IPR001128),Cytochrome P450 superfamily (IPR036396),Plant Cytochrome P450 Monooxygenases (IPR050665);B5toI1=Exon-intron structures%2C exon and CDS sequences are different between Build 5 and IRGSP-1.0.
+chr01	irgsp1_rep	CDS	12146	12284	.	-	0	Parent=Os01t0100300-00
+chr01	irgsp1_rep	CDS	11372	12042	.	-	2	Parent=Os01t0100300-00
+chr01	irgsp1_rep	mRNA	12721	15685	.	+	.	ID=Os01t0100400-01;Name=Os01t0100400-01;Locus_id=Os01g0100400;Note=Similar to Pectinesterase-like protein.;Transcript_evidence=AK101455;ORF_evidence=Q1EPX7 (UniProt);GO=Molecular Function: copper ion binding (GO:0005507),Molecular Function: oxidoreductase activity (GO:0016491);InterPro=Multicopper oxidase%2C second cupredoxin domain (IPR001117),Cupredoxin (IPR008972),Multicopper oxidase%2C C-terminal (IPR011706),Multicopper oxidase-like%2C N-terminal (IPR011707),Multicopper oxidase (IPR045087)
+chr01	irgsp1_rep	five_prime_UTR	12721	12773	.	+	.	Parent=Os01t0100400-01
+chr01	irgsp1_rep	CDS	12774	13813	.	+	0	Parent=Os01t0100400-01
+chr01	irgsp1_rep	CDS	13906	14271	.	+	1	Parent=Os01t0100400-01
+chr01	irgsp1_rep	CDS	14359	14437	.	+	1	Parent=Os01t0100400-01
+chr01	irgsp1_rep	CDS	14969	15171	.	+	0	Parent=Os01t0100400-01
+chr01	irgsp1_rep	CDS	15266	15359	.	+	1	Parent=Os01t0100400-01
+chr01	irgsp1_rep	three_prime_UTR	15360	15685	.	+	.	Parent=Os01t0100400-01
+chr01	irgsp1_rep	mRNA	12808	13978	.	-	.	ID=Os01t0100466-00;Name=Os01t0100466-00;Locus_id=Os01g0100466;Note=Hypothetical protein.;Transcript_evidence=tplb0021n10 (Wheat FLcDNA);ORF_evidence=longestORF
+chr01	irgsp1_rep	five_prime_UTR	13880	13978	.	-	.	Parent=Os01t0100466-00
+chr01	irgsp1_rep	five_prime_UTR	13103	13782	.	-	.	Parent=Os01t0100466-00
+chr01	irgsp1_rep	CDS	12869	13102	.	-	0	Parent=Os01t0100466-00
+chr01	irgsp1_rep	three_prime_UTR	12808	12868	.	-	.	Parent=Os01t0100466-00
+chr01	irgsp1_rep	mRNA	16399	20144	.	+	.	ID=Os01t0100500-01;Name=Os01t0100500-01;Locus_id=Os01g0100500;Note=Immunoglobulin-like domain containing protein.;Transcript_evidence=AK067316;ORF_evidence=A2WJL2 (UniProt)
+chr01	irgsp1_rep	five_prime_UTR	16399	16598	.	+	.	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	16599	16976	.	+	0	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	17383	17474	.	+	0	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	17558	18258	.	+	1	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	18501	18571	.	+	2	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	18968	19057	.	+	0	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	19142	19321	.	+	0	Parent=Os01t0100500-01
+chr01	irgsp1_rep	CDS	19531	19593	.	+	0	Parent=Os01t0100500-01
+chr01	irgsp1_rep	three_prime_UTR	19594	19629	.	+	.	Parent=Os01t0100500-01
+chr01	irgsp1_rep	three_prime_UTR	19734	20144	.	+	.	Parent=Os01t0100500-01
+chr01	irgsp1_rep	mRNA	22841	26892	.	+	.	ID=Os01t0100600-01;Name=Os01t0100600-01;Locus_id=Os01g0100600;Note=Single-stranded nucleic acid binding R3H domain containing protein.;Transcript_evidence=AK121362;ORF_evidence=B9EYQ6 (UniProt);GO=Molecular Function: nucleic acid binding (GO:0003676);InterPro=R3H domain (IPR001374),SUZ domain (IPR024771),R3H domain superfamily (IPR036867),R3H domain-containing (IPR051937)
+chr01	irgsp1_rep	five_prime_UTR	22841	23231	.	+	.	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	23232	23281	.	+	0	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	23572	23847	.	+	1	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	23962	24033	.	+	1	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	24492	24577	.	+	1	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	25445	25519	.	+	2	Parent=Os01t0100600-01
+chr01	irgsp1_rep	CDS	25883	26391	.	+	2	Parent=Os01t0100600-01
+chr01	irgsp1_rep	three_prime_UTR	26392	26892	.	+	.	Parent=Os01t0100600-01
+chr01	irgsp1_rep	mRNA	25861	26424	.	-	.	ID=Os01t0100650-00;Name=Os01t0100650-00;Locus_id=Os01g0100650;Note=Hypothetical gene.;Transcript_evidence=EU948781;ORF_evidence=longestORF
+chr01	irgsp1_rep	five_prime_UTR	26424	26424	.	-	.	Parent=Os01t0100650-00
+chr01	irgsp1_rep	CDS	26040	26423	.	-	0	Parent=Os01t0100650-00
+chr01	irgsp1_rep	three_prime_UTR	25861	26039	.	-	.	Parent=Os01t0100650-00
+chr01	irgsp1_rep	mRNA	27143	28644	.	+	.	ID=Os01t0100700-01;Name=Os01t0100700-01;Locus_id=Os01g0100700;Oryzabase Gene Symbol Synonym(s)=RPS5;Oryzabase Gene Name Synonym(s)=ribosomal protein S5%2C ribosomal protein small subunit 5;Note=Similar to 40S ribosomal protein S5-1.;Transcript_evidence=AK121523,AK059844;ORF_evidence=B3TLN7 (UniProt);GO=Biological Process: translation (GO:0006412),Cellular Component: small ribosomal subunit (GO:0015935),Molecular Function: RNA binding (GO:0003723),Molecular Function: structural constituent of ribosome (GO:0003735);InterPro=Small ribosomal subunit protein uS7 (IPR000235),Ribosomal protein uS7%2C eukaryotic/archaeal (IPR005716),Small ribosomal subunit protein uS7%2C conserved site (IPR020606),Small ribosomal subunit protein uS7 domain (IPR023798),Small ribosomal subunit protein uS7 domain superfamily (IPR036823);Oryzabase=22169
+chr01	irgsp1_rep	five_prime_UTR	27143	27220	.	+	.	Parent=Os01t0100700-01
+chr01	irgsp1_rep	CDS	27221	27292	.	+	0	Parent=Os01t0100700-01
+chr01	irgsp1_rep	CDS	27370	27641	.	+	0	Parent=Os01t0100700-01
+chr01	irgsp1_rep	CDS	28090	28293	.	+	1	Parent=Os01t0100700-01
+chr01	irgsp1_rep	CDS	28365	28419	.	+	1	Parent=Os01t0100700-01
+chr01	irgsp1_rep	three_prime_UTR	28420	28644	.	+	.	Parent=Os01t0100700-01
+chr01	irgsp1_rep	mRNA	29818	34453	.	+	.	ID=Os01t0100800-01;Name=Os01t0100800-01;Locus_id=Os01g0100800;Note=Protein of unknown function DUF1664 family protein.;Transcript_evidence=AK122012;ORF_evidence=B8ACR5 (UniProt);InterPro=Domain of unknown function DUF1664 (IPR012458)
+chr01	irgsp1_rep	five_prime_UTR	29818	29939	.	+	.	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	29940	29976	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	30146	30228	.	+	2	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	30735	30806	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	30885	30963	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	31258	31325	.	+	2	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	31505	31606	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	32377	32466	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	32542	32616	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	32712	32744	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	32828	32905	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	33274	33330	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	33400	33471	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	33543	33617	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	CDS	33975	34124	.	+	0	Parent=Os01t0100800-01
+chr01	irgsp1_rep	three_prime_UTR	34125	34453	.	+	.	Parent=Os01t0100800-01
+chr01	irgsp1_rep	mRNA	35623	41136	.	+	.	ID=Os01t0100900-01;Name=Os01t0100900-01;Locus_id=Os01g0100900;RAP-DB Gene Symbol Synonym(s)=SPL1%2C OsSPL1;RAP-DB Gene Name Synonym(s)=SPHINGOSINE-1-PHOSPHATE LYASE 1%2C Sphingosine-1-Phoshpate Lyase 1;Oryzabase Gene Symbol Synonym(s)=OsSPL%2C OsSPL1;Oryzabase Gene Name Synonym(s)=Sphingosine-1-phosphate lyase%2C sphingosine-1-phosphate lyase 1;Note=Sphingosine-1-phosphate lyase%2C Disease resistance response;Transcript_evidence=AY972084,AK243573;ORF_evidence=Q52RG7,B7FAK6;GO=Biological Process: carboxylic acid metabolic process (GO:0019752),Molecular Function: carbon-carbon lyase activity (GO:0016830),Molecular Function: pyridoxal phosphate binding (GO:0030170);InterPro=Pyridoxal phosphate-dependent decarboxylase (IPR002129),Pyridoxal phosphate-dependent transferase%2C major domain (IPR015421),Pyridoxal phosphate-dependent transferase%2C small domain (IPR015422),Pyridoxal phosphate-dependent transferase (IPR015424),Group II Amino Acid Decarboxylases (IPR050477);Manual Curation=July 9%2C 2015;Literature_PMID=22889013;Oryzabase=15128
+chr01	irgsp1_rep	five_prime_UTR	35623	35742	.	+	.	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	35743	35939	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	36027	36072	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	36517	36668	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	36818	36877	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	37594	37818	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	37892	38033	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	38276	38326	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	38434	38525	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	39319	39445	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	39553	39568	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	39939	40046	.	+	2	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	40135	40189	.	+	2	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	40456	40602	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	40703	40781	.	+	1	Parent=Os01t0100900-01
+chr01	irgsp1_rep	CDS	40885	41007	.	+	0	Parent=Os01t0100900-01
+chr01	irgsp1_rep	three_prime_UTR	41008	41136	.	+	.	Parent=Os01t0100900-01
+chr01	irgsp1_rep	mRNA	58658	61090	.	+	.	ID=Os01t0101150-00;Name=Os01t0101150-00;Locus_id=Os01g0101150;Note=Hypothetical conserved gene.;Transcript_evidence=ab initio prediction;ORF_evidence=Q7F2F8 (UniProt);GO=Biological Process: RNA modification (GO:0009451),Molecular Function: RNA binding (GO:0003723),Molecular Function: protein binding (GO:0005515),Molecular Function: zinc ion binding (GO:0008270);InterPro=Pentatricopeptide repeat (IPR002885),Tetratricopeptide-like helical domain superfamily (IPR011990),DYW domain (IPR032867),E motif (IPR046848),Pentatricopeptide repeat-containing protein At4g14850-like%2C plant (IPR046960)
+chr01	irgsp1_rep	CDS	58658	61090	.	+	0	Parent=Os01t0101150-00
+chr01	irgsp1_rep	mRNA	60091	61086	.	-	.	ID=Os01t0101175-00;Name=Os01t0101175-00;Locus_id=Os01g0101175;Note=Non-protein coding transcript.;Transcript_evidence=BT084741;ORF_evidence=NONE
+chr01	irgsp1_rep	exon	60091	61086	.	-	.	Parent=Os01t0101175-00
+chr01	irgsp1_rep	mRNA	62060	63576	.	+	.	ID=Os01t0101200-01;Name=Os01t0101200-01;Locus_id=Os01g0101200;Note=2%2C3-diketo-5-methylthio-1-phosphopentane phosphatase domain containing protein.;Transcript_evidence=AK067866,AK104517,AK104625,AK104752;ORF_evidence=NP_974931.1 (RefSeq);GO=Biological Process: L-methionine salvage from methylthioadenosine (GO:0019509),Molecular Function: acireductone synthase activity (GO:0043874),Molecular Function: magnesium ion binding (GO:0000287);InterPro=HAD superfamily (IPR023214),Enolase-phosphatase E1 (IPR023943),HAD-like superfamily (IPR036412)
+chr01	irgsp1_rep	five_prime_UTR	62060	62103	.	+	.	Parent=Os01t0101200-01
+chr01	irgsp1_rep	CDS	62104	62295	.	+	0	Parent=Os01t0101200-01
+chr01	irgsp1_rep	CDS	62385	62905	.	+	0	Parent=Os01t0101200-01
+chr01	irgsp1_rep	CDS	62996	63114	.	+	1	Parent=Os01t0101200-01
+chr01	irgsp1_rep	CDS	63248	63345	.	+	2	Parent=Os01t0101200-01
+chr01	irgsp1_rep	three_prime_UTR	63346	63576	.	+	.	Parent=Os01t0101200-01
+chr01	irgsp1_rep	mRNA	62112	65537	.	+	.	ID=Os01t0101200-02;Name=Os01t0101200-02;Locus_id=Os01g0101200;Note=2%2C3-diketo-5-methylthio-1-phosphopentane phosphatase domain containing protein.;Transcript_evidence=AK119457;ORF_evidence=Q7F2F8 (UniProt);GO=Biological Process: L-methionine salvage from methylthioadenosine (GO:0019509),Molecular Function: acireductone synthase activity (GO:0043874),Molecular Function: magnesium ion binding (GO:0000287);InterPro=HAD superfamily (IPR023214),Enolase-phosphatase E1 (IPR023943),HAD-like superfamily (IPR036412)
+chr01	irgsp1_rep	five_prime_UTR	62112	62112	.	+	.	Parent=Os01t0101200-02
+chr01	irgsp1_rep	CDS	62113	62295	.	+	0	Parent=Os01t0101200-02
+chr01	irgsp1_rep	CDS	62385	62905	.	+	0	Parent=Os01t0101200-02
+chr01	irgsp1_rep	CDS	62996	63114	.	+	1	Parent=Os01t0101200-02
+chr01	irgsp1_rep	CDS	63248	63345	.	+	2	Parent=Os01t0101200-02
+chr01	irgsp1_rep	three_prime_UTR	63346	65537	.	+	.	Parent=Os01t0101200-02
