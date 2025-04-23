@@ -3,11 +3,13 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "ignore": ["geneSTRUCTURE_v2/**"]
     },
     {
       "src": "package.json",
-      "use": "@vercel/next"
+      "use": "@vercel/next",
+      "ignore": ["geneSTRUCTURE_v2/**"]
     }
   ],
   "routes": [
