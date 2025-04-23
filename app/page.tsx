@@ -13,12 +13,19 @@ import {
 
 type UIState = "upload" | "preview";
 
-type GeneStructureRequest = {
-  mode: string;
+type DrawSettings = {
+  mode: "domain" | "gene";
   utr_color: string;
   exon_color: string;
   line_color: string;
-  file_name: string;
+  intron_shape: "straight" | "zigzag";
+  gene_height?: number;
+  margin_x?: number;
+  margin_y?: number;
+};
+
+type GeneStructureRequest = {
+  draw_settings: DrawSettings;
   gene_structure: GeneStructureInfo;
 };
 
@@ -153,11 +160,13 @@ export default function Home() {
     if (geneStructures.length === 0) return null;
 
     return {
-      mode: "domain",
-      utr_color: utrColor,
-      exon_color: exonColor,
-      line_color: lineColor,
-      file_name: selectedFile?.name ?? "gene_structure",
+      draw_settings: {
+        mode: "domain",
+        utr_color: utrColor,
+        exon_color: exonColor,
+        line_color: lineColor,
+        intron_shape: "straight",
+      },
       gene_structure: geneStructures[0],
     };
   };

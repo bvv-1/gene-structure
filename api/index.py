@@ -30,18 +30,20 @@ class GeneStructureInfo(BaseModel):
     start: int
     end: int
 
+class DrawSettings(BaseModel):
+    mode: str
+    utr_color: str
+    exon_color: str
+    line_color: str
+    intron_shape: str
+    gene_h: int = 20
+    margin_x: int = 50
+    margin_y: int = 100
+    domains: Optional[List[dict]] = None
+
 # リクエストモデルの定義を更新
 class GeneStructureRequest(BaseModel):
-    mode: str
-    # file_name: str
-    # utr_color: str = "#CCCCCC"
-    # exon_color: str = "#000000"
-    # line_color: str = "#000000"
-    # margin_x: int = 50
-    # margin_y: int = 50
-    # intron_shape: str = "straight"
-    # gene_h: int = 20
-    # domains: Optional[List[dict]] = None
+    draw_settings: DrawSettings
     gene_structure: GeneStructureInfo
 
 def cDNA_pos2gDNA_pos(cDNA_exon_pos, domain_cDNA_pos, cumsum_intron_len):
@@ -134,19 +136,13 @@ def is_position_in_exon(exon_pos, pos):
 @app.post("/api/py/generate-gene-structure-svg")
 async def generate_gene_structure_svg(request: GeneStructureRequest):
     try:
-        # 構造情報の取り出し
-        strand = request.gene_structure.strand
-        total_length = request.gene_structure.total_length
-        del_pos = np.array([1, 100])
-
-        # exons or cds_posが空ではない
         if not request.gene_structure.exons and not request.gene_structure.cds:
             raise HTTPException(status_code=400, detail="No exons or cds positions provided.")
         if not request.gene_structure.cds:
             raise HTTPException(status_code=400, detail="Not implemented")
 
         min_pos = min(request.gene_structure.start, request.gene_structure.end)
-        if strand == '+':
+        if request.gene_structure.strand == '+':
             exon_pos = [Position(start=pos.start - min_pos, end=pos.end - min_pos) for pos in request.gene_structure.exons]
             cds_pos = [Position(start=pos.start - min_pos, end=pos.end - min_pos) for pos in request.gene_structure.cds]
             five_prime_UTR = [Position(start=pos.start - min_pos, end=pos.end - min_pos) for pos in request.gene_structure.five_prime_utrs]
@@ -166,42 +162,20 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
         is_del_start_in_exon = False
         is_del_end_in_exon = False
 
-        # エキソン＆イントロン長の計算
-        # if strand == '-':
-        #     exon_intron_length = np.array([(exon_pos[i+1] - exon_pos[i])/10 for i in range(len(exon_pos)-1)])[::-1]
-        # else:
-        #     exon_intron_length = np.array([(exon_pos[i+1] - exon_pos[i])/10 for i in range(len(exon_pos)-1)])
-
-        # exon_len = np.array([exon_intron_length[i] for i in range(len(exon_intron_length)) if i % 2 == 0])
-        # intron_len = np.asarray([exon_intron_length[i] for i in range(len(exon_intron_length)) if i % 2 == 1])
-
-        # 累積イントロン長
-        # cumsum_intron_len = np.append(np.append(0, np.cumsum(intron_len)), 0)
-        # cDNAでの位置
-        # cDNA_exon_pos = np.append(0, np.cumsum(exon_len))
-
-        # # 基本の作図用
-        # if strand == '-':
-        #     x = np.abs(exon_pos - np.max(exon_pos))[::-1]/10 + 50
-        # else:
-        #     x = (exon_pos - np.min(exon_pos))/10 + 50
-
         # SVGの作成
         margin_x = 50
         margin_y = 100
         gene_h = 20
         center_line_y = margin_y + gene_h / 2
-        mode = request.mode
         utr_gradation = "on"
         exon_gradation = "on"
-        exon_color = "#0077cc"
-        utr_color = "#d3d3d3"
-        line_color = "#000000"
-        line_color = "#000000"
+        # exon_color = "#0077cc"
+        # utr_color = "#d3d3d3"
+        # line_color = "#000000"
         deletion_shape = "zigzag"
 
         dwg = svgwrite.Drawing(
-            size=(total_length/10 + margin_x * 2, gene_h + margin_y * 2),
+            size=(request.gene_structure.total_length/10 + margin_x * 2, gene_h + margin_y * 2),
             profile='tiny',
         )
         
@@ -226,8 +200,8 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=exon_color,
-                stroke="none" if stroke == "off" else line_color,
+                fill=request.draw_settings.exon_color,
+                stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width,
             ))
 
@@ -250,8 +224,8 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=utr_color,
-                stroke="none" if stroke == "off" else line_color,
+                fill=request.draw_settings.utr_color,
+                stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width
             ))
         
@@ -259,8 +233,8 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=utr_color,
-                stroke="none" if stroke == "off" else line_color,
+                fill=request.draw_settings.utr_color,
+                stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width
             ))
 
@@ -324,7 +298,7 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.line(
                 start=(pos1.end/10 + margin_x, center_line_y),
                 end=(pos2.start/10 + margin_x, center_line_y),
-                stroke=line_color,
+                stroke=request.draw_settings.line_color,
                 stroke_width=stroke_width,
             ))
 
