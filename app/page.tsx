@@ -152,9 +152,8 @@ export default function Home() {
   const getRequestData = (): GeneStructureRequest | null => {
     if (geneStructures.length === 0) return null;
 
-    console.log(geneStructures[0]);
     return {
-      mode: "basic",
+      mode: "domain",
       utr_color: utrColor,
       exon_color: exonColor,
       line_color: lineColor,

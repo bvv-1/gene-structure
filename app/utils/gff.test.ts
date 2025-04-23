@@ -1,33 +1,33 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { parseGff, getmRNAs } from "./gff";
+import { getmRNAs } from "./gff";
+import { parseStringSync } from "gff-nostream";
 
 describe("GFFユーティリティ関数のテスト", () => {
-  let gffFile: File;
-
-  // テスト前にGFFファイルを読み込む
-  beforeAll(() => {
-    const filePath = path.resolve(__dirname, "./transcripts.gff");
-    const gffContent = fs.readFileSync(filePath, "utf-8");
-    const blob = new Blob([gffContent], { type: "text/plain" });
-    gffFile = new File([blob], "transcripts.gff");
-  });
-
-  describe("parseGff", () => {
-    test("GFFファイルをパースできる", async () => {
-      const gff = await parseGff(gffFile);
-      expect(gff.length).toBe(15);
-    });
-  });
-
   describe("getmRNAs", () => {
-    test("mRNAsを取得できる", async () => {
-      const gff = await parseGff(gffFile);
+    test("イネでmRNAsを取得できる", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gff");
+      const gffContent = fs.readFileSync(filePath, "utf-8");
+      const gff = parseStringSync(gffContent);
       const mRNAs = getmRNAs(gff);
+      expect(mRNAs.length).toBe(15);
       for (const mRNA of mRNAs) {
         expect(mRNA.type).toBe("mRNA");
-        console.log(mRNA.attributes?.ID?.[0]);
+      }
+    });
+
+    test("ソルガムでmRNAsを取得できる", async () => {
+      const filePath = path.resolve(
+        __dirname,
+        "./Sorghum_bicolor.Sorghum_bicolor_NCBIv3.51.gff3",
+      );
+      const gffContent = fs.readFileSync(filePath, "utf-8");
+      const gff = parseStringSync(gffContent);
+      const mRNAs = getmRNAs(gff);
+      expect(mRNAs.length).toBe(2);
+      for (const mRNA of mRNAs) {
+        expect(mRNA.type).toBe("mRNA");
       }
     });
   });

@@ -3,14 +3,19 @@ import {
   type GFF3Feature,
   type GFF3FeatureLine,
 } from "gff-nostream";
-import fs from "node:fs";
+
+type Position = {
+  start: number;
+  end: number;
+};
 
 export type GeneStructureInfo = GFF3FeatureLine & {
   transcript_id: string;
   total_length: number;
-  exon_positions: number[];
-  five_prime_utr: number;
-  three_prime_utr: number;
+  exons: Position[];
+  cds: Position[];
+  five_prime_utrs: Position[];
+  three_prime_utrs: Position[];
 };
 
 export async function parseGff(file: File): Promise<GFF3Feature[]> {
@@ -42,17 +47,30 @@ export async function parseGff(file: File): Promise<GFF3Feature[]> {
 
 export function getmRNAs(gff: GFF3Feature[]): GFF3Feature {
   const mRNAs: GFF3Feature = [];
-  for (const feature of gff) {
-    if (feature.length > 1) {
-      // FIXME: featureのlengthが1ではないパターンがわからない
-      throw new Error("featureが1つではありません");
-    }
+  const seen = new Set<string>();
+  for (const features of gff) {
+    for (const feature of features) {
+      const stack: GFF3Feature = [feature];
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current) {
+          continue;
+        }
+        if (current.attributes?.ID && current.attributes?.ID.length > 0) {
+          if (seen.has(current.attributes.ID[0])) {
+            continue;
+          }
+          seen.add(current.attributes.ID[0]);
+        }
 
-    const stack: GFF3Feature[] = [feature];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (current && current[0].type === "mRNA") {
-        mRNAs.push(current[0]);
+        if (current.type?.toLowerCase() === "mrna") {
+          mRNAs.push(current);
+        }
+        for (const child_features of current.child_features) {
+          for (const child of child_features) {
+            stack.push(child);
+          }
+        }
       }
     }
   }
@@ -62,30 +80,57 @@ export function getmRNAs(gff: GFF3Feature[]): GFF3Feature {
 export function getGeneStructureInfo(mRNAs: GFF3Feature): GeneStructureInfo[] {
   const geneStructureInfo: GeneStructureInfo[] = [];
   for (const mRNA of mRNAs) {
-    const exon_positions: number[] = [];
-    let five_prime_utr: number = Number.NaN;
-    let three_prime_utr: number = Number.NaN;
-    for (const feature of mRNA.child_features) {
-      switch (feature[0].type) {
-        case "exon":
-          exon_positions.push(feature[0].start ?? Number.NaN);
-          exon_positions.push(feature[0].end ?? Number.NaN);
-          break;
-        case "five_prime_utr":
-          five_prime_utr = feature[0].start ?? Number.NaN;
-          break;
-        case "three_prime_utr":
-          three_prime_utr = feature[0].start ?? Number.NaN;
-          break;
+    const cds: Position[] = [];
+    const exons: Position[] = [];
+    const five_prime_utrs: Position[] = [];
+    const three_prime_utrs: Position[] = [];
+    for (const features of mRNA.child_features) {
+      for (const feature of features) {
+        const feature_type = feature.type?.toLowerCase();
+        switch (feature_type) {
+          case "cds":
+            cds.push({
+              start: feature.start ?? Number.NaN,
+              end: feature.end ?? Number.NaN,
+            });
+            break;
+          case "exon":
+            exons.push({
+              start: feature.start ?? Number.NaN,
+              end: feature.end ?? Number.NaN,
+            });
+            break;
+          case "five_prime_utr":
+            five_prime_utrs.push({
+              start: feature.start ?? Number.NaN,
+              end: feature.end ?? Number.NaN,
+            });
+            break;
+          case "three_prime_utr":
+            three_prime_utrs.push({
+              start: feature.start ?? Number.NaN,
+              end: feature.end ?? Number.NaN,
+            });
+            break;
+        }
       }
     }
     geneStructureInfo.push({
-      ...mRNA,
+      seq_id: mRNA.seq_id,
+      source: mRNA.source,
+      type: mRNA.type,
+      start: mRNA.start,
+      end: mRNA.end,
+      score: mRNA.score,
+      strand: mRNA.strand,
+      phase: mRNA.phase,
+      attributes: mRNA.attributes,
       transcript_id: mRNA.attributes?.ID?.[0] ?? "",
       total_length: mRNA.end && mRNA.start ? mRNA.end - mRNA.start : Number.NaN,
-      exon_positions: exon_positions,
-      five_prime_utr: five_prime_utr,
-      three_prime_utr: three_prime_utr,
+      cds,
+      exons,
+      five_prime_utrs,
+      three_prime_utrs,
     });
   }
   return geneStructureInfo;
