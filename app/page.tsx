@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import useSWR from "swr";
 import Fuse from "fuse.js";
 
@@ -60,7 +60,8 @@ const postFetcher = async (url: string, data: GeneStructureRequest | null) => {
 export default function Home() {
   const [uiState, setUiState] = useState<UIState>("upload");
   const [isLoading, setIsLoading] = useState(false);
-  const [geneId, setGeneId] = useState("SORBI_3007G204600");
+  const [input, setInput] = useState("");
+  const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [utrColor, setUtrColor] = useState("#d3d3d3");
   const [exonColor, setExonColor] = useState("#000000");
   const [lineColor, setLineColor] = useState("#000000");
@@ -83,10 +84,21 @@ export default function Home() {
     filename: "gene_structure",
   });
 
-  const fuse = new Fuse(geneStructures, {
-    includeScore: true,
-    threshold: 0.2,
-  });
+  const fuseInstance = useMemo(() => {
+    const fuse = new Fuse(geneStructures, {
+      keys: ["transcript_id", "attributes.Parent"],
+      threshold: 0.5, // TODO: しきい値を調整する
+    });
+    return fuse;
+  }, [geneStructures]);
+
+  const filteredGeneStructures = useMemo(() => {
+    const result = fuseInstance.search(input);
+    const filteredResult = result.filter(
+      (item) => !selectedTranscripts.includes(item.item.transcript_id),
+    );
+    return filteredResult.slice(0, 20).map((item) => item.item);
+  }, [input, fuseInstance, selectedTranscripts]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -167,7 +179,9 @@ export default function Home() {
         line_color: lineColor,
         intron_shape: "straight",
       },
-      gene_structure: geneStructures[0],
+      gene_structure: geneStructures.filter((gs) =>
+        selectedTranscripts.includes(gs.transcript_id),
+      )[0],
     };
   };
 
@@ -355,11 +369,70 @@ export default function Home() {
                 type="text"
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
                 placeholder="Enter gene ID"
-                value={geneId}
-                onChange={(e) => setGeneId(e.target.value)}
+                disabled={!geneStructures.length}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
               />
 
-              {/* 選ばれたgene id */}
+              <div className="mt-4">
+                {filteredGeneStructures.length > 0 ? (
+                  <ul className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                    {filteredGeneStructures.map((gs) => (
+                      <li key={gs.transcript_id}>
+                        <button
+                          type="button"
+                          className="w-full text-left px-4 py-2 hover:bg-blue-50 cursor-pointer text-black"
+                          onClick={() => {
+                            if (
+                              !selectedTranscripts.includes(gs.transcript_id)
+                            ) {
+                              setSelectedTranscripts([
+                                ...selectedTranscripts,
+                                gs.transcript_id,
+                              ]);
+                            }
+                          }}
+                        >
+                          {gs.transcript_id}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-black">No matching transcripts found.</p>
+                )}
+              </div>
+
+              {selectedTranscripts.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-black mb-2">
+                    Selected Transcripts:
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTranscripts.map((transcript) => (
+                      <div
+                        key={transcript}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center"
+                      >
+                        {transcript}
+                        <button
+                          type="button"
+                          className="ml-2 text-blue-600 hover:text-blue-800"
+                          onClick={() => {
+                            setSelectedTranscripts(
+                              selectedTranscripts.filter(
+                                (t) => t !== transcript,
+                              ),
+                            );
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

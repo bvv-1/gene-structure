@@ -179,13 +179,17 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             profile='tiny',
         )
         
-        # grad_dict = {}
+        grad_dict = {}
 
-        # if utr_gradation == "on":
-        #     utr_color = f'url(#{get_or_create_gradient(dwg, utr_color, grad_dict)})'
+        if utr_gradation == "on":
+            utr_color = f'url(#{get_or_create_gradient(dwg, request.draw_settings.utr_color, grad_dict)})'
+        else:
+            utr_color = request.draw_settings.utr_color
 
-        # if exon_gradation == "on":
-        #     exon_color = f'url(#{get_or_create_gradient(dwg, exon_color, grad_dict)})'
+        if exon_gradation == "on":
+            exon_color = f'url(#{get_or_create_gradient(dwg, request.draw_settings.exon_color, grad_dict)})'
+        else:
+            exon_color = request.draw_settings.exon_color
 
         stroke_width = 1
         stroke = "on"
@@ -200,7 +204,7 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=request.draw_settings.exon_color,
+                fill=exon_color,
                 stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width,
             ))
@@ -224,7 +228,7 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=request.draw_settings.utr_color,
+                fill=utr_color,
                 stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width
             ))
@@ -233,7 +237,7 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             dwg.add(dwg.rect(
                 insert=(pos.start/10 + margin_x, margin_y),
                 size=(np.abs(pos.end-pos.start+1) / 10, gene_h),
-                fill=request.draw_settings.utr_color,
+                fill=utr_color,
                 stroke="none" if stroke == "off" else request.draw_settings.line_color,
                 stroke_width=stroke_width
             ))
