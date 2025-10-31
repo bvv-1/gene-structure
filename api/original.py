@@ -1,26 +1,7 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse, Response
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List, Dict
-import io
 import svgwrite
 
-
-### Create FastAPI instance with custom docs and openapi url
-app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
-
-# CORSミドルウェアの設定
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # =====================
-# 描画の色やスタイル設定
+# ★描画の色やスタイル設定
 # =====================
 
 FEATURE_COLORS = {
@@ -85,6 +66,7 @@ class GeneStructure:
         self.features.append(feature)
 
     def get_sorted_features(self):
+        #reverse = True if self.strand == '-' else False
         return sorted(self.features, key=lambda f: f.start, reverse=False)
 
     def add_introns(self):
@@ -118,6 +100,7 @@ class GeneStructure:
             self.features.append(domain_feature)
 
     def update_features_with_deletions(self, deletion_regions):
+
         new_features = []
 
         for i, feature in enumerate(self.features):
@@ -161,11 +144,15 @@ class GeneStructure:
         # 結果を更新
         self.features = new_features
 
+
     def to_relative(self):
         cds_list = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
         if not cds_list:
             return 0
+        #if self.strand == '+':
         anchor = min(cds_list, key=lambda f: f.start).start
+        #else:
+            #anchor = max(cds_list, key=lambda f: f.start).end
         for f in self.features:
             f.start = f.start - anchor + 1
             f.end = f.end - anchor + 1
@@ -176,7 +163,10 @@ class GeneStructure:
         """
         アミノ酸座標（1-based）を基に、CDSからcDNA、そしてゲノム座標へと変換して
         ドメイン領域をfeaturesに追加する。
+
+        例: start_aa=10, end_aa=100 は、cDNA上で28-300に相当
         """
+
         # アミノ酸座標 → cDNA 座標（1-based）
         cdna_start = (start_aa - 1) * 3 + 1
         cdna_end = end_aa * 3
@@ -229,6 +219,8 @@ class GeneStructure:
 
             current_cdna_pos = next_cdna_pos + 1
 
+
+
 # =====================
 # GFFパーサ
 # =====================
@@ -258,19 +250,19 @@ def parse_gff_for_transcript(gff_file, transcript_id):
 # 描画関数
 # =====================
 
-def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0):
+def draw_gene_structure(gene: GeneStructure, output_svg: str, scale=2, extra_padding=100, shrink_factor=30.0):
+
     min_start = gene.to_relative()
     all_features = gene.get_sorted_features()
     max_end = max(f.end / shrink_factor for f in all_features)
 
     shift = -min_start if min_start < 0 else 0
-
+    
+    
     canvas_width = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale + extra_padding + 300
     canvas_height = 300  # 凡例分のスペースを確保
 
-    # メモリ上にSVGを作成
-    output = io.StringIO()
-    dwg = svgwrite.Drawing(size=(canvas_width, canvas_height))
+    dwg = svgwrite.Drawing(output_svg, size=(canvas_width, canvas_height))
     y_pos = 50
     height_feature = 15
     max_x_coord = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale
@@ -281,7 +273,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
         width = x_end - x_start
 
         if feat.feature_type == 'domain':
-            continue
+            continue 
 
         if feat.feature_type == 'deletion':
             dwg.add(
@@ -320,7 +312,6 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                         stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
                     )
                 )
-
     for feat in all_features:
         if feat.feature_type == 'domain':
             x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
@@ -384,69 +375,63 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             fill='black'
         ))
 
-    return dwg.tostring()
+    dwg.save()
+
+def print_features_as_gff(gene: GeneStructure):
+    for f in gene.get_sorted_features():
+        attr_str = ';'.join(f"{k}={v}" for k, v in f.attributes.items()) if f.attributes else '.'
+        print("\t".join([
+            f.seqid,
+            "manual",                # source
+            f.feature_type,
+            str(f.start),
+            str(f.end),
+            ".",                     # score
+            f.strand,
+            ".",                     # phase
+            attr_str
+        ]))
+
 
 # =====================
-# Pydanticモデル
+# インプット例と実行
 # =====================
 
-class DrawGeneRequest(BaseModel):
-    transcript_id: str
-    gff_file_path: str = './gff3/IRGSP-1.0_representative/transcripts.gff'
-    deletion_regions: List[List[int]] = []
-    domains: List[Dict] = []
-    protein_domain_start: Optional[int] = None
-    protein_domain_end: Optional[int] = None
-    protein_domain_name: Optional[str] = None
+gff_file = './geneSTRUCTURE_v2/gff3/IRGSP-1.0_representative/transcripts.gff'
+#transcript_id = 'Os01t0100100-01'
+#transcript_id = 'Os04t0648800-01'
+transcript_id = 'Os06t0160700-01'
+### 追加して表示したい情報 ###
+#deletion_regions_relative = [(12,2000)]
+deletion_regions_relative = []
+
+domains = [
+    {'start':   200, 'end': 500, 'name': 'Kinase', 'color': 'red'},
+    {'start': 600, 'end': 800, 'name': 'ATPase', 'color': 'blue'}
+]
+#domains = []
+
 
 # =====================
-# エンドポイント
+# メイン処理
 # =====================
 
-@app.post("/api/py/draw-gene")
-async def draw_gene(request: DrawGeneRequest):
-    """
-    遺伝子構造を描画するエンドポイント
-    """
-    try:
-        # GFFファイルをパース
-        gene = parse_gff_for_transcript(request.gff_file_path, request.transcript_id)
+gene = parse_gff_for_transcript(gff_file, transcript_id)
 
-        if not gene:
-            raise HTTPException(status_code=404, detail=f"Transcript {request.transcript_id} not found in GFF file")
+if gene:
+    #print_features_as_gff(gene)
+    gene.add_introns()
+    #print_features_as_gff(gene)
+    gene.to_relative()
+    print_features_as_gff(gene)
+    gene.add_domain_from_protein_coords(1, 120, 'domain1')
+    #gene.add_domains(domains)
 
-        # イントロンを追加
-        gene.add_introns()
+    # デリーション処理
+    gene.update_features_with_deletions(deletion_regions_relative)
 
-        # 相対座標に変換
-        gene.to_relative()
-
-        # プロテインドメインを追加（指定されている場合）
-        if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
-            gene.add_domain_from_protein_coords(
-                request.protein_domain_start,
-                request.protein_domain_end,
-                request.protein_domain_name
-            )
-
-        # ドメインを追加
-        if request.domains:
-            gene.add_domains(request.domains)
-
-        # デリーション処理
-        deletion_regions_as_tuples = [tuple(r) for r in request.deletion_regions]
-        gene.update_features_with_deletions(deletion_regions_as_tuples)
-
-        # SVGを生成
-        svg_content = draw_gene_structure(gene)
-
-        return Response(content=svg_content, media_type="image/svg+xml")
-
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="GFF file not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-async def root():
-    return {"message": "health check"}
+    # 出力
+    print_features_as_gff(gene)
+    output_svg = f'{transcript_id}_with_relative_deletions.svg'
+    draw_gene_structure(gene, output_svg)
+    print(f'描画しました: {output_svg}')

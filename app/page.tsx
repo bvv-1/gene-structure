@@ -103,15 +103,17 @@ export default function Home() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
-      // setIsLoading(true);
-      // try {
-      //   const gffData = await parseGff(e.target.files[0]);
-      //   setParsedGff(gffData);
-      // } catch (error) {
-      //   alert(`Error parsing GFF file: ${error}`);
-      // } finally {
-      //   setIsLoading(false);
-      // }
+      setIsLoading(true);
+      try {
+        const gffData = await parseGff(e.target.files[0]);
+        const mRNAs = getmRNAs(gffData);
+        const geneStructureInfo = getGeneStructureInfo(mRNAs);
+        setGeneStructures(geneStructureInfo);
+      } catch (error) {
+        alert(`Error parsing GFF file: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -247,7 +249,8 @@ export default function Home() {
     if (svgData) {
       window.URL.revokeObjectURL(svgData.url);
     }
-    setGeneStructures([]);
+    // setGeneStructures([]);
+    setSelectedTranscripts([]);
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
