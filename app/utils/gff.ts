@@ -1,7 +1,7 @@
 import {
-  parseStringSync,
   type GFF3Feature,
   type GFF3FeatureLine,
+  parseStringSync,
 } from "gff-nostream";
 
 type Position = {

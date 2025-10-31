@@ -1,14 +1,32 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
-import useSWR from "swr";
+import {
+  Autocomplete,
+  Badge,
+  Button,
+  Card,
+  ColorInput,
+  Grid,
+  Group,
+  Modal,
+  NumberInput,
+  Paper,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { Dropzone } from "@mantine/dropzone";
 import Fuse from "fuse.js";
+import { useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 
 import {
-  parseGff,
-  getmRNAs,
-  getGeneStructureInfo,
   type GeneStructureInfo,
+  getGeneStructureInfo,
+  getmRNAs,
+  parseGff,
 } from "./utils/gff";
 
 type UIState = "upload" | "preview";
@@ -65,17 +83,11 @@ export default function Home() {
   const [utrColor, setUtrColor] = useState("#d3d3d3");
   const [exonColor, setExonColor] = useState("#000000");
   const [lineColor, setLineColor] = useState("#000000");
-  // カラー変更時のデバウンス用
-  const [tempUtrColor, setTempUtrColor] = useState(utrColor);
-  const [tempExonColor, setTempExonColor] = useState(exonColor);
-  const [tempLineColor, setTempLineColor] = useState(lineColor);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [width, setWidth] = useState(1200);
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>({
     format: "svg",
@@ -87,65 +99,27 @@ export default function Home() {
   const fuseInstance = useMemo(() => {
     const fuse = new Fuse(geneStructures, {
       keys: ["transcript_id", "attributes.Parent"],
-      threshold: 0.5, // TODO: しきい値を調整する
+      threshold: 0.5,
     });
     return fuse;
   }, [geneStructures]);
 
-  const filteredGeneStructures = useMemo(() => {
-    const result = fuseInstance.search(input);
-    const filteredResult = result.filter(
-      (item) => !selectedTranscripts.includes(item.item.transcript_id),
-    );
-    return filteredResult.slice(0, 20).map((item) => item.item);
-  }, [input, fuseInstance, selectedTranscripts]);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setIsLoading(true);
-      try {
-        const gffData = await parseGff(e.target.files[0]);
-        const mRNAs = getmRNAs(gffData);
-        const geneStructureInfo = getGeneStructureInfo(mRNAs);
-        setGeneStructures(geneStructureInfo);
-      } catch (error) {
-        alert(`Error parsing GFF file: ${error}`);
-      } finally {
-        setIsLoading(false);
-      }
+  const autocompleteData = useMemo(() => {
+    if (!input) {
+      return geneStructures
+        .filter((gs) => !selectedTranscripts.includes(gs.transcript_id))
+        .slice(0, 20)
+        .map((gs) => gs.transcript_id);
     }
-  };
 
-  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setSelectedFile(e.dataTransfer.files[0]);
-      setIsLoading(true);
-      try {
-        const gffData = await parseGff(e.dataTransfer.files[0]);
-        const mRNAs = getmRNAs(gffData);
-        const geneStructureInfo = getGeneStructureInfo(mRNAs);
-        setGeneStructures(geneStructureInfo);
-      } catch (error) {
-        alert(`Error parsing GFF file: ${error}`);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
+    const searchResults = fuseInstance.search(input);
+    return searchResults
+      .filter(
+        (result) => !selectedTranscripts.includes(result.item.transcript_id),
+      )
+      .slice(0, 20)
+      .map((result) => result.item.transcript_id);
+  }, [geneStructures, selectedTranscripts, input, fuseInstance]);
 
   // ファイル処理関数（アップロード→解析）
   const handleFileProcess = async () => {
@@ -314,141 +288,169 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-row gap-4">
-            <div className="card p-6 mb-8 bg-white rounded-lg shadow-md flex-1">
-              <h3 className="text-xl font-semibold text-black mb-4">
-                Upload File
-              </h3>
-              <div
-                className={`file-upload mb-4 ${dragActive ? "border-blue-500 bg-blue-50" : ""}`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
+          <Grid gutter="md">
+            <Grid.Col span={6}>
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                className="mb-8"
+                h="100%"
               >
-                <i className="bx bx-cloud-upload text-5xl text-blue-500 mb-4" />
-                <p className="text-black mb-2">
-                  Drag and drop a GFF3 file here
-                </p>
-                <p className="text-sm text-black mb-4">or</p>
-                <label className="btn-primary cursor-pointer">
-                  <span>Select a file</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".gff,.gff3"
-                    onChange={handleFileChange}
-                    ref={fileInputRef}
-                  />
-                </label>
-                {selectedFile && (
-                  <p className="mt-4 text-black">
-                    Selected file: {selectedFile.name}
-                  </p>
-                )}
-              </div>
-              <div className="text-black">
-                <h4 className="font-medium mb-2">Example GFF3 Format:</h4>
-                <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
-                  ##gff-version 3<br />
-                  Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
-                  <br />
-                  Chr1 TAIR10 mRNA 3631 5899 . + .
-                  ID=AT1G01010.1;Parent=AT1G01010
-                  <br />
-                  Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
-                  <br />
-                  Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1
-                </pre>
-              </div>
-            </div>
+                <h3 className="text-xl font-semibold text-black mb-4">
+                  Upload File
+                </h3>
+                <Dropzone
+                  onDrop={async (files) => {
+                    if (files.length > 0) {
+                      setSelectedFile(files[0]);
+                      setIsLoading(true);
+                      try {
+                        const gffData = await parseGff(files[0]);
+                        const mRNAs = getmRNAs(gffData);
+                        const geneStructureInfo = getGeneStructureInfo(mRNAs);
+                        setGeneStructures(geneStructureInfo);
+                      } catch (error) {
+                        alert(`Error parsing GFF file: ${error}`);
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }
+                  }}
+                  accept={{
+                    "text/plain": [".gff", ".gff3"],
+                  }}
+                  maxFiles={1}
+                  loading={isLoading}
+                >
+                  <Group
+                    justify="center"
+                    gap="xl"
+                    style={{ minHeight: 220, pointerEvents: "none" }}
+                  >
+                    <Dropzone.Accept>
+                      <i className="bx bx-cloud-upload text-5xl text-blue-500" />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                      <i className="bx bx-x text-5xl text-red-500" />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                      <i className="bx bx-cloud-upload text-5xl text-blue-500" />
+                    </Dropzone.Idle>
 
-            <div className="card p-6 mb-8 bg-white rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold text-black mb-4">
-                Select Gene ID
-              </h3>
-
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                placeholder="Enter gene ID"
-                disabled={!geneStructures.length}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-              />
-
-              <div className="mt-4">
-                {filteredGeneStructures.length > 0 ? (
-                  <ul className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-                    {filteredGeneStructures.map((gs) => (
-                      <li key={gs.transcript_id}>
-                        <button
-                          type="button"
-                          className="w-full text-left px-4 py-2 hover:bg-blue-50 cursor-pointer text-black"
-                          onClick={() => {
-                            if (
-                              !selectedTranscripts.includes(gs.transcript_id)
-                            ) {
-                              setSelectedTranscripts([
-                                ...selectedTranscripts,
-                                gs.transcript_id,
-                              ]);
-                            }
-                          }}
-                        >
-                          {gs.transcript_id}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-black">No matching transcripts found.</p>
-                )}
-              </div>
-
-              {selectedTranscripts.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-black mb-2">
-                    Selected Transcripts:
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTranscripts.map((transcript) => (
-                      <div
-                        key={transcript}
-                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center"
-                      >
-                        {transcript}
-                        <button
-                          type="button"
-                          className="ml-2 text-blue-600 hover:text-blue-800"
-                          onClick={() => {
-                            setSelectedTranscripts(
-                              selectedTranscripts.filter(
-                                (t) => t !== transcript,
-                              ),
-                            );
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                    <div>
+                      <Text size="xl" inline>
+                        Drag and drop a GFF3 file here
+                      </Text>
+                      <Text size="sm" c="dimmed" inline mt={7}>
+                        or click to select a file
+                      </Text>
+                      {selectedFile && (
+                        <Text size="sm" mt="md">
+                          Selected file: {selectedFile.name}
+                        </Text>
+                      )}
+                    </div>
+                  </Group>
+                </Dropzone>
+                <div className="text-black mt-4">
+                  <h4 className="font-medium mb-2">Example GFF3 Format:</h4>
+                  <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
+                    ##gff-version 3<br />
+                    Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
+                    <br />
+                    Chr1 TAIR10 mRNA 3631 5899 . + .
+                    ID=AT1G01010.1;Parent=AT1G01010
+                    <br />
+                    Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
+                    <br />
+                    Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1
+                  </pre>
                 </div>
-              )}
-            </div>
-          </div>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={6}>
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                className="mb-8"
+                h="100%"
+              >
+                <h3 className="text-xl font-semibold text-black mb-4">
+                  Select Gene ID
+                </h3>
+
+                <Autocomplete
+                  label="Search Gene ID"
+                  placeholder="Enter gene ID"
+                  disabled={!geneStructures.length}
+                  value={input}
+                  onChange={setInput}
+                  data={autocompleteData}
+                  onOptionSubmit={(value) => {
+                    if (!selectedTranscripts.includes(value)) {
+                      setSelectedTranscripts([...selectedTranscripts, value]);
+                      setInput("");
+                    }
+                  }}
+                />
+
+                {selectedTranscripts.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-black mb-2">
+                      Selected Transcripts:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTranscripts.map((transcript) => (
+                        <Badge
+                          key={transcript}
+                          size="lg"
+                          variant="light"
+                          rightSection={
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTranscripts(
+                                  selectedTranscripts.filter(
+                                    (t) => t !== transcript,
+                                  ),
+                                );
+                              }}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                padding: 0,
+                                marginLeft: 4,
+                              }}
+                            >
+                              ×
+                            </button>
+                          }
+                        >
+                          {transcript}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </Grid.Col>
+          </Grid>
 
           <div className="flex justify-end">
-            <button
-              type="button"
-              className={`btn-primary flex items-center ${isLoading || !selectedFile ? "opacity-50 cursor-not-allowed" : ""}`}
+            <Button
               onClick={handleFileProcess}
               disabled={isLoading || !selectedFile}
+              loading={isLoading}
+              rightSection={<i className="bx bx-right-arrow-alt" />}
             >
-              {isLoading ? "Processing..." : "Generate Visualization"}
-              <i className="bx bx-right-arrow-alt ml-2" />
-            </button>
+              Generate Visualization
+            </Button>
           </div>
         </>
       )}
@@ -466,252 +468,193 @@ export default function Home() {
 
           <div className="grid grid-cols-3 gap-8 mb-8">
             <div className="col-span-2">
-              <div className="card p-6 flex items-center justify-center h-full">
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                className="flex items-center justify-center h-full"
+              >
                 <div className="w-full bg-white border border-gray-200 rounded-lg flex items-center justify-center">
                   <canvas ref={canvasRef} className="w-full" />
                 </div>
-              </div>
+              </Card>
             </div>
 
             <div>
-              <div className="card p-6 mb-6">
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                className="mb-6"
+              >
                 <h3 className="text-xl font-semibold text-black mb-4">
                   Basic Settings
                 </h3>
                 <div className="space-y-4">
-                  <div>
-                    <label htmlFor="width" className="block text-black mb-2">
-                      Width (px)
-                    </label>
-                    <input
-                      id="width"
-                      type="number"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                      value={width}
-                      onChange={(e) =>
-                        setWidth(Number.parseInt(e.target.value))
-                      }
-                    />
-                  </div>
+                  <NumberInput
+                    label="Width (px)"
+                    value={width}
+                    onChange={(value) => setWidth(Number(value))}
+                    min={100}
+                    max={5000}
+                  />
                   <div>
                     <p className="block text-black mb-2">
                       Gene Feature Color Settings
                     </p>
                     <div className="grid grid-cols-3 gap-2 mb-2">
-                      <div>
-                        <label
-                          htmlFor="utr-color"
-                          className="block text-xs text-black mb-1"
-                        >
-                          UTR
-                        </label>
-                        <input
-                          id="utr-color"
-                          type="color"
-                          value={utrColor}
-                          onChange={(e) => setTempUtrColor(e.target.value)}
-                          onBlur={() => setUtrColor(tempUtrColor)}
-                          className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="exon-color"
-                          className="block text-xs text-black mb-1"
-                        >
-                          Exon
-                        </label>
-                        <input
-                          type="color"
-                          value={exonColor}
-                          onChange={(e) => setTempExonColor(e.target.value)}
-                          onBlur={() => setExonColor(tempExonColor)}
-                          className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="line-color"
-                          className="block text-xs text-black mb-1"
-                        >
-                          Line
-                        </label>
-                        <input
-                          type="color"
-                          value={lineColor}
-                          onChange={(e) => setTempLineColor(e.target.value)}
-                          onBlur={() => setLineColor(tempLineColor)}
-                          className="w-full h-8 border border-gray-300 rounded-md shadow-sm cursor-pointer"
-                        />
-                      </div>
+                      <ColorInput
+                        label="UTR"
+                        value={utrColor}
+                        onChange={setUtrColor}
+                        format="hex"
+                      />
+                      <ColorInput
+                        label="Exon"
+                        value={exonColor}
+                        onChange={setExonColor}
+                        format="hex"
+                      />
+                      <ColorInput
+                        label="Line"
+                        value={lineColor}
+                        onChange={setLineColor}
+                        format="hex"
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
 
-              <div className="card p-6">
+              <Card shadow="sm" padding="lg" radius="md" withBorder>
                 <h3 className="text-xl font-semibold text-black mb-4">
                   Actions
                 </h3>
-                <div className="flex flex-col space-y-3">
-                  <button
-                    type="button"
-                    className="btn-primary flex items-center justify-center"
+                <Stack gap="md">
+                  <Button
                     onClick={() => handleGenerateSVG(geneStructures[0])}
                     disabled={isLoading}
+                    loading={isLoading}
+                    leftSection={<i className="bx bx-edit" />}
+                    fullWidth
                   >
-                    <i className="bx bx-edit text-xl mr-2" />
-                    <span>{isLoading ? "Processing..." : "Regenerate"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
+                    Regenerate
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={handleResetUpload}
                     disabled={isLoading}
+                    leftSection={<i className="bx bx-refresh" />}
+                    fullWidth
                   >
-                    <i className="bx bx-refresh text-xl mr-2" />
-                    <span>Back to Upload</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
+                    Back to Upload
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => setShowExportDialog(true)}
                     disabled={isLoading || !svgData}
+                    leftSection={<i className="bx bx-download" />}
+                    fullWidth
                   >
-                    <i className="bx bx-download text-xl mr-2" />
-                    <span>Export</span>
-                  </button>
-                </div>
-              </div>
+                    Export
+                  </Button>
+                </Stack>
+              </Card>
             </div>
           </div>
         </>
       )}
 
       {/* Export dialog */}
-      {showExportDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-xl font-semibold mb-4">Export Settings</h3>
+      <Modal
+        opened={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        title="Export Settings"
+        centered
+      >
+        <Stack gap="md">
+          <TextInput
+            label="File Name"
+            value={exportSettings.filename}
+            onChange={(e) =>
+              setExportSettings({
+                ...exportSettings,
+                filename: e.target.value,
+              })
+            }
+          />
 
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="filename"
-                  className="block text-sm font-medium mb-1"
-                >
-                  File Name
-                </label>
-                <input
-                  id="filename"
-                  type="text"
-                  className="w-full border rounded px-3 py-2"
-                  value={exportSettings.filename}
-                  onChange={(e) =>
-                    setExportSettings({
-                      ...exportSettings,
-                      filename: e.target.value,
-                    })
-                  }
-                />
-              </div>
+          <Select
+            label="File Format"
+            value={exportSettings.format}
+            onChange={(value) =>
+              setExportSettings({
+                ...exportSettings,
+                format: value as "svg" | "png",
+              })
+            }
+            data={[
+              { value: "svg", label: "SVG" },
+              { value: "png", label: "PNG" },
+            ]}
+          />
 
-              <div>
-                <label
-                  htmlFor="format"
-                  className="block text-sm font-medium mb-1"
-                >
-                  File Format
-                </label>
-                <select
-                  id="format"
-                  className="w-full border rounded px-3 py-2"
-                  value={exportSettings.format}
-                  onChange={(e) =>
-                    setExportSettings({
-                      ...exportSettings,
-                      format: e.target.value as "svg" | "png",
-                    })
-                  }
-                >
-                  <option value="svg">SVG</option>
-                  <option value="png">PNG</option>
-                </select>
-              </div>
+          {exportSettings.format === "png" && (
+            <>
+              <Select
+                label="DPI"
+                value={String(exportSettings.dpi)}
+                onChange={(value) =>
+                  setExportSettings({
+                    ...exportSettings,
+                    dpi: Number(value),
+                  })
+                }
+                data={[
+                  { value: "72", label: "72 DPI" },
+                  { value: "150", label: "150 DPI" },
+                  { value: "300", label: "300 DPI" },
+                  { value: "600", label: "600 DPI" },
+                ]}
+              />
 
-              {exportSettings.format === "png" && (
-                <>
-                  <div>
-                    <label
-                      htmlFor="dpi"
-                      className="block text-sm font-medium mb-1"
-                    >
-                      DPI
-                    </label>
-                    <select
-                      className="w-full border rounded px-3 py-2"
-                      value={exportSettings.dpi}
-                      onChange={(e) =>
-                        setExportSettings({
-                          ...exportSettings,
-                          dpi: Number(e.target.value),
-                        })
-                      }
-                    >
-                      <option value="72">72 DPI</option>
-                      <option value="150">150 DPI</option>
-                      <option value="300">300 DPI</option>
-                      <option value="600">600 DPI</option>
-                    </select>
-                  </div>
+              <Select
+                label="Background"
+                value={exportSettings.background}
+                onChange={(value) =>
+                  setExportSettings({
+                    ...exportSettings,
+                    background: value as "transparent" | "white",
+                  })
+                }
+                data={[
+                  { value: "transparent", label: "Transparent" },
+                  { value: "white", label: "White" },
+                ]}
+              />
+            </>
+          )}
 
-                  <div>
-                    <label
-                      htmlFor="background"
-                      className="block text-sm font-medium mb-1"
-                    >
-                      Background
-                    </label>
-                    <select
-                      id="background"
-                      className="w-full border rounded px-3 py-2"
-                      value={exportSettings.background}
-                      onChange={(e) =>
-                        setExportSettings({
-                          ...exportSettings,
-                          background: e.target.value as "transparent" | "white",
-                        })
-                      }
-                    >
-                      <option value="transparent">Transparent</option>
-                      <option value="white">White</option>
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                type="button"
-                className="border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg py-2 px-4 transition-colors flex items-center justify-center"
-                onClick={() => setShowExportDialog(false)}
-              >
-                <span>Cancel</span>
-              </button>
-              <button
-                type="button"
-                className="btn-primary flex items-center justify-center"
-                onClick={handleDownload}
-                disabled={isLoading}
-              >
-                <i className="bx bx-download text-xl mr-2" />
-                <span>{isLoading ? "Processing..." : "Download"}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="outline"
+              onClick={() => setShowExportDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDownload}
+              disabled={isLoading}
+              loading={isLoading}
+              leftSection={<i className="bx bx-download" />}
+            >
+              Download
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </div>
   );
 }

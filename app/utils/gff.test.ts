@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseStringSync } from "gff-nostream";
 import { beforeAll, describe, expect, test } from "vitest";
 import { getmRNAs } from "./gff";
-import { parseStringSync } from "gff-nostream";
 
 describe("GFFユーティリティ関数のテスト", () => {
   describe("getmRNAs", () => {

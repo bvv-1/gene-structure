@@ -29,6 +29,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         try {
           // アップロード完了後の処理をここに記述
           // 例：データベースの更新など
+          console.log("トークンペイロード:", tokenPayload);
         } catch (error) {
           throw new Error("アップロード後の処理に失敗しました");
         }
