@@ -22,6 +22,7 @@ import Fuse from "fuse.js";
 import { useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { text } from "node:stream/consumers";
 import {
   type GeneStructureInfo,
   getGeneStructureInfo,
@@ -381,12 +382,12 @@ export default function Home() {
                 h="100%"
               >
                 <h3 className="text-xl font-semibold text-black mb-4">
-                  Select Gene ID
+                  Search Genes/Transcripts
                 </h3>
 
                 <Autocomplete
-                  label="Search Gene ID"
-                  placeholder="Enter gene ID"
+                  label="Search Genes/Transcripts"
+                  placeholder="Enter gene ID/transcript ID"
                   disabled={!geneStructures.length}
                   value={input}
                   onChange={setInput}
@@ -409,7 +410,7 @@ export default function Home() {
                         <Badge
                           key={transcript}
                           size="lg"
-                          variant="light"
+                          style={{ textTransform: "none" }}
                           rightSection={
                             <button
                               type="button"
