@@ -399,6 +399,41 @@ class DrawGeneRequest(BaseModel):
     protein_domain_end: Optional[int] = None
     protein_domain_name: Optional[str] = None
 
+class Position(BaseModel):
+    start: int
+    end: int
+
+class DrawSettings(BaseModel):
+    mode: str  # "domain" or "gene"
+    utr_color: str
+    exon_color: str
+    line_color: str
+    intron_shape: str  # "straight" or "zigzag"
+    gene_height: Optional[int] = None
+    margin_x: Optional[int] = None
+    margin_y: Optional[int] = None
+
+class GeneStructureInfo(BaseModel):
+    seq_id: Optional[str] = None
+    source: Optional[str] = None
+    type: Optional[str] = None
+    start: Optional[int] = None
+    end: Optional[int] = None
+    score: Optional[float] = None
+    strand: Optional[str] = None
+    phase: Optional[str] = None
+    attributes: Optional[Dict] = None
+    transcript_id: str
+    total_length: int
+    exons: List[Position]
+    cds: List[Position]
+    five_prime_utrs: List[Position]
+    three_prime_utrs: List[Position]
+
+class GeneStructureRequest(BaseModel):
+    draw_settings: DrawSettings
+    gene_structure: GeneStructureInfo
+
 # =====================
 # エンドポイント
 # =====================
@@ -444,6 +479,119 @@ async def draw_gene(request: DrawGeneRequest):
 
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="GFF file not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/py/generate-gene-structure-svg")
+async def generate_gene_structure_svg(request: GeneStructureRequest):
+    """
+    フロントエンドから送られたGeneStructureInfoを基に遺伝子構造を描画するエンドポイント
+    """
+    try:
+        # GeneStructureオブジェクトを作成
+        gene_info = request.gene_structure
+        gene = GeneStructure(
+            gene_id=gene_info.transcript_id,
+            seqid=gene_info.seq_id or "",
+            strand=gene_info.strand or "+"
+        )
+
+        # Exonを追加
+        for exon in gene_info.exons:
+            if gene_info.strand == '-':
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    exon.end * -1,
+                    exon.start * -1,
+                    'exon',
+                    gene_info.strand or "+",
+                    {}
+                )
+            else:
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    exon.start,
+                    exon.end,
+                    'exon',
+                    gene_info.strand or "+",
+                    {}
+                )
+            gene.add_feature(feature)
+
+        # CDSを追加
+        for cds in gene_info.cds:
+            if gene_info.strand == '-':
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    cds.end * -1,
+                    cds.start * -1,
+                    'CDS',
+                    gene_info.strand or "+",
+                    {}
+                )
+            else:
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    cds.start,
+                    cds.end,
+                    'CDS',
+                    gene_info.strand or "+",
+                    {}
+                )
+            gene.add_feature(feature)
+
+        # 5' UTRを追加
+        for utr in gene_info.five_prime_utrs:
+            if gene_info.strand == '-':
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    utr.end * -1,
+                    utr.start * -1,
+                    'five_prime_UTR',
+                    gene_info.strand or "+",
+                    {}
+                )
+            else:
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    utr.start,
+                    utr.end,
+                    'five_prime_UTR',
+                    gene_info.strand or "+",
+                    {}
+                )
+            gene.add_feature(feature)
+
+        # 3' UTRを追加
+        for utr in gene_info.three_prime_utrs:
+            if gene_info.strand == '-':
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    utr.end * -1,
+                    utr.start * -1,
+                    'three_prime_UTR',
+                    gene_info.strand or "+",
+                    {}
+                )
+            else:
+                feature = GeneFeature(
+                    gene_info.seq_id or "",
+                    utr.start,
+                    utr.end,
+                    'three_prime_UTR',
+                    gene_info.strand or "+",
+                    {}
+                )
+            gene.add_feature(feature)
+
+        # イントロンを追加
+        gene.add_introns()
+
+        # SVGを生成
+        svg_content = draw_gene_structure(gene)
+
+        return Response(content=svg_content, media_type="image/svg+xml")
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

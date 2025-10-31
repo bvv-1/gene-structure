@@ -491,7 +491,7 @@ export default function Home() {
                 className="mb-6"
               >
                 <h3 className="text-xl font-semibold text-black mb-4">
-                  Basic Settings
+                  Color Settings
                 </h3>
                 <div className="space-y-4">
                   <NumberInput

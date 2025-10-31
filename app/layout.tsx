@@ -1,9 +1,9 @@
 import "./globals.css";
 import "boxicons/css/boxicons.min.css";
-import { Inter } from "next/font/google";
+import { Open_Sans } from "next/font/google";
 import Layout from "./components/Layout";
 
-const inter = Inter({ subsets: ["latin"] });
+const openSans = Open_Sans({ subsets: ["latin"] });
 
 export const metadata = {
   title: "geneSTRUCTURE",
@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body className={openSans.className}>
         <Layout>{children}</Layout>
       </body>
     </html>
