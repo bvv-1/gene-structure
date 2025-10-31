@@ -4,8 +4,8 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 231, 247, 255;
-  --background-end-rgb: 255, 255, 255;
+  --background-start-rgb: 217, 242, 209;
+  --background-end-rgb: 213, 242, 239;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,16 +18,10 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
 }
 
 .gradient-bg {
-  background: linear-gradient(120deg, #f0f9ff, #e6f7ff);
+  background: linear-gradient(to right, rgb(217, 242, 209), rgb(213, 242, 239));
 }
 
 .card {
