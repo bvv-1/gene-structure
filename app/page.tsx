@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  Code,
   ColorInput,
   Grid,
   Group,
@@ -15,14 +16,23 @@ import {
   Stack,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
 } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
+import {
+  IconArrowRight,
+  IconCloudUpload,
+  IconDownload,
+  IconPlayerPlay,
+  IconRefresh,
+  IconX,
+} from "@tabler/icons-react";
 import Fuse from "fuse.js";
 import { useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { text } from "node:stream/consumers";
+import SvgViewer from "./components/SvgViewer";
 import {
   type GeneStructureInfo,
   getGeneStructureInfo,
@@ -126,6 +136,10 @@ export default function Home() {
   const handleFileProcess = async () => {
     if (!selectedFile) {
       alert("Select a GFF file");
+      return;
+    }
+    if (selectedTranscripts.length === 0) {
+      alert("Select at least one gene/transcript");
       return;
     }
 
@@ -281,291 +295,301 @@ export default function Home() {
   return (
     <div className="flex-1 flex flex-col">
       {uiState === "upload" && (
-        <>
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-black mb-4">Upload File</h2>
-            <p className="text-black">
-              Upload a GFF3 file containing gene feature data.
-            </p>
-          </div>
+        <Stack>
+          <Title order={2} mb="md">
+            Upload
+          </Title>
 
-          <Grid gutter="md">
-            <Grid.Col span={6}>
-              <Card
-                shadow="sm"
-                padding="lg"
-                radius="md"
-                withBorder
-                className="mb-8"
-                h="100%"
-              >
-                <h3 className="text-xl font-semibold text-black mb-4">
-                  Upload File
-                </h3>
-                <Dropzone
-                  onDrop={async (files) => {
-                    if (files.length > 0) {
-                      setSelectedFile(files[0]);
-                      setIsLoading(true);
-                      try {
-                        const gffData = await parseGff(files[0]);
-                        const mRNAs = getmRNAs(gffData);
-                        const geneStructureInfo = getGeneStructureInfo(mRNAs);
-                        setGeneStructures(geneStructureInfo);
-                      } catch (error) {
-                        alert(`Error parsing GFF file: ${error}`);
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }
-                  }}
-                  accept={{
-                    "text/plain": [".gff", ".gff3"],
-                  }}
-                  maxFiles={1}
-                  loading={isLoading}
+          <Stack mb="8" gap="md">
+            <Grid gutter="md">
+              <Grid.Col span={6}>
+                <Card
+                  shadow="xl"
+                  padding="lg"
+                  radius="md"
+                  className="mb-8"
+                  h="100%"
                 >
-                  <Group
-                    justify="center"
-                    gap="xl"
-                    style={{ minHeight: 220, pointerEvents: "none" }}
-                  >
-                    <Dropzone.Accept>
-                      <i className="bx bx-cloud-upload text-5xl text-blue-500" />
-                    </Dropzone.Accept>
-                    <Dropzone.Reject>
-                      <i className="bx bx-x text-5xl text-red-500" />
-                    </Dropzone.Reject>
-                    <Dropzone.Idle>
-                      <i className="bx bx-cloud-upload text-5xl text-blue-500" />
-                    </Dropzone.Idle>
+                  <Title order={3} mb="md">
+                    Upload File
+                  </Title>
 
-                    <div>
-                      <Text size="xl" inline>
-                        Drag and drop a GFF3 file here
-                      </Text>
-                      <Text size="sm" c="dimmed" inline mt={7}>
-                        or click to select a file
-                      </Text>
-                      {selectedFile && (
-                        <Text size="sm" mt="md">
-                          Selected file: {selectedFile.name}
-                        </Text>
-                      )}
-                    </div>
-                  </Group>
-                </Dropzone>
-                <div className="text-black mt-4">
-                  <h4 className="font-medium mb-2">Example GFF3 Format:</h4>
-                  <pre className="bg-gray-100 p-3 rounded-lg text-xs overflow-auto">
-                    ##gff-version 3<br />
-                    Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
-                    <br />
-                    Chr1 TAIR10 mRNA 3631 5899 . + .
-                    ID=AT1G01010.1;Parent=AT1G01010
-                    <br />
-                    Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
-                    <br />
-                    Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1
-                  </pre>
-                </div>
-              </Card>
-            </Grid.Col>
-
-            <Grid.Col span={6}>
-              <Card
-                shadow="sm"
-                padding="lg"
-                radius="md"
-                withBorder
-                className="mb-8"
-                h="100%"
-              >
-                <h3 className="text-xl font-semibold text-black mb-4">
-                  Search Genes/Transcripts
-                </h3>
-
-                <Autocomplete
-                  label="Search Genes/Transcripts"
-                  placeholder="Enter gene ID/transcript ID"
-                  disabled={!geneStructures.length}
-                  value={input}
-                  onChange={setInput}
-                  data={autocompleteData}
-                  onOptionSubmit={(value) => {
-                    if (!selectedTranscripts.includes(value)) {
-                      setSelectedTranscripts([...selectedTranscripts, value]);
-                      setInput("");
-                    }
-                  }}
-                />
-
-                {selectedTranscripts.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-black mb-2">
-                      Selected Transcripts:
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTranscripts.map((transcript) => (
-                        <Badge
-                          key={transcript}
-                          size="lg"
-                          style={{ textTransform: "none" }}
-                          rightSection={
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedTranscripts(
-                                  selectedTranscripts.filter(
-                                    (t) => t !== transcript,
-                                  ),
-                                );
-                              }}
-                              style={{
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                padding: 0,
-                                marginLeft: 4,
-                              }}
-                            >
-                              ×
-                            </button>
+                  <Stack>
+                    <Dropzone
+                      style={{
+                        border: "2px dashed #D9D9D9",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                      }}
+                      onDrop={async (files) => {
+                        if (files.length > 0) {
+                          setSelectedFile(files[0]);
+                          setIsLoading(true);
+                          try {
+                            const gffData = await parseGff(files[0]);
+                            const mRNAs = getmRNAs(gffData);
+                            const geneStructureInfo =
+                              getGeneStructureInfo(mRNAs);
+                            setGeneStructures(geneStructureInfo);
+                          } catch (error) {
+                            alert(`Error parsing GFF file: ${error}`);
+                          } finally {
+                            setIsLoading(false);
                           }
-                        >
-                          {transcript}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            </Grid.Col>
-          </Grid>
+                        }
+                      }}
+                      accept={{
+                        "text/plain": [".gff", ".gff3"],
+                      }}
+                      maxFiles={1}
+                      loading={isLoading}
+                    >
+                      <Group
+                        justify="center"
+                        align="center"
+                        gap="xl"
+                        style={{
+                          minHeight: 220,
+                          pointerEvents: "none",
+                          textAlign: "center",
+                        }}
+                      >
+                        <Stack align="center" gap="md">
+                          <Dropzone.Accept>
+                            <IconCloudUpload size={80} color="#AAA" />
+                          </Dropzone.Accept>
+                          <Dropzone.Reject>
+                            <IconX size={80} color="#AAA" />
+                          </Dropzone.Reject>
+                          <Dropzone.Idle>
+                            <IconCloudUpload size={80} color="#AAA" />
+                          </Dropzone.Idle>
+                          <Text size="md" c="dimmed">
+                            Drag and drop a GFF3 file here
+                            <br />
+                            or click to select a file
+                          </Text>
+                          {selectedFile && (
+                            <Text size="sm" mt="md">
+                              Selected file: {selectedFile.name}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Group>
+                    </Dropzone>
 
-          <div className="flex justify-end">
-            <Button
-              onClick={handleFileProcess}
-              disabled={isLoading || !selectedFile}
-              loading={isLoading}
-              rightSection={<i className="bx bx-right-arrow-alt" />}
-            >
-              Generate Visualization
-            </Button>
-          </div>
-        </>
+                    <div className="mt-4">
+                      <Text fw={500} mb="xs">
+                        Example GFF3 Format:
+                      </Text>
+                      <Code block p="md">
+                        {`##gff-version 3
+Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
+Chr1 TAIR10 mRNA 3631 5899 . + . ID=AT1G01010.1;Parent=AT1G01010
+Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
+Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
+                      </Code>
+                    </div>
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={6}>
+                <Card
+                  shadow="xl"
+                  padding="lg"
+                  radius="md"
+                  className="mb-8"
+                  h="100%"
+                >
+                  <Title order={3} mb="md">
+                    Search Genes/Transcripts
+                  </Title>
+
+                  <Stack>
+                    <Autocomplete
+                      label=""
+                      placeholder="Select gene ID/transcript ID"
+                      disabled={!geneStructures.length}
+                      value={input}
+                      onChange={setInput}
+                      data={autocompleteData}
+                      onOptionSubmit={(value) => {
+                        if (!selectedTranscripts.includes(value)) {
+                          setSelectedTranscripts([
+                            ...selectedTranscripts,
+                            value,
+                          ]);
+                          setInput("");
+                        }
+                      }}
+                    />
+
+                    {selectedTranscripts.length > 0 && (
+                      <>
+                        <Text size="sm" fw={500} mb="xs">
+                          Selected Transcripts:
+                        </Text>
+                        <Stack gap="xs">
+                          {selectedTranscripts.map((transcript) => (
+                            <Badge
+                              key={transcript}
+                              size="lg"
+                              style={{ textTransform: "none" }}
+                              rightSection={
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTranscripts(
+                                      selectedTranscripts.filter(
+                                        (t) => t !== transcript,
+                                      ),
+                                    );
+                                  }}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    marginLeft: 4,
+                                    color: "white",
+                                    fontSize: 20,
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              }
+                            >
+                              {transcript}
+                            </Badge>
+                          ))}
+                        </Stack>
+                      </>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            <Stack align="flex-end" mb="8">
+              <Button
+                onClick={handleFileProcess}
+                disabled={isLoading || !selectedFile}
+                loading={isLoading}
+                rightSection={<IconArrowRight size={16} />}
+              >
+                Generate Preview
+              </Button>
+            </Stack>
+          </Stack>
+        </Stack>
       )}
 
       {/* プレビューページを追加 */}
       {uiState === "preview" && (
-        <>
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-black mb-4">Preview</h2>
-            <p className="text-black">
-              You can preview the gene structure diagram generated from the
-              uploaded data.
-            </p>
-          </div>
+        <Stack>
+          <Title order={2} mb="md">
+            Preview
+          </Title>
 
-          <div className="grid grid-cols-3 gap-8 mb-8">
-            <div className="col-span-2">
-              <Card
-                shadow="sm"
-                padding="lg"
-                radius="md"
-                withBorder
-                className="flex items-center justify-center h-full"
-              >
-                <div className="w-full bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-                  <canvas ref={canvasRef} className="w-full" />
-                </div>
+          <Grid gutter="md" mb="8">
+            <Grid.Col span={8}>
+              <Card shadow="xl" radius="md">
+                <SvgViewer svgUrl={svgData?.url} />
               </Card>
-            </div>
+            </Grid.Col>
 
-            <div>
-              <Card
-                shadow="sm"
-                padding="lg"
-                radius="md"
-                withBorder
-                className="mb-6"
-              >
-                <h3 className="text-xl font-semibold text-black mb-4">
-                  Color Settings
-                </h3>
-                <div className="space-y-4">
-                  <NumberInput
-                    label="Width (px)"
-                    value={width}
-                    onChange={(value) => setWidth(Number(value))}
-                    min={100}
-                    max={5000}
-                  />
-                  <div>
-                    <p className="block text-black mb-2">
-                      Gene Feature Color Settings
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <ColorInput
-                        label="UTR"
-                        value={utrColor}
-                        onChange={setUtrColor}
-                        format="hex"
-                      />
-                      <ColorInput
-                        label="Exon"
-                        value={exonColor}
-                        onChange={setExonColor}
-                        format="hex"
-                      />
-                      <ColorInput
-                        label="Line"
-                        value={lineColor}
-                        onChange={setLineColor}
-                        format="hex"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Card>
+            <Grid.Col span={4}>
+              <Stack gap="md">
+                <Card shadow="xl" padding="lg" radius="md">
+                  <Title order={3} mb="md">
+                    Actions
+                  </Title>
+                  <Stack gap="md">
+                    <Button
+                      onClick={() => handleGenerateSVG(geneStructures[0])}
+                      disabled={isLoading}
+                      loading={isLoading}
+                      leftSection={<IconPlayerPlay size={16} />}
+                      fullWidth
+                    >
+                      Regenerate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetUpload}
+                      disabled={isLoading}
+                      leftSection={<IconRefresh size={16} />}
+                      fullWidth
+                    >
+                      Back to Upload
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowExportDialog(true)}
+                      disabled={isLoading || !svgData}
+                      leftSection={<IconDownload size={16} />}
+                      fullWidth
+                    >
+                      Export
+                    </Button>
+                  </Stack>
+                </Card>
 
-              <Card shadow="sm" padding="lg" radius="md" withBorder>
-                <h3 className="text-xl font-semibold text-black mb-4">
-                  Actions
-                </h3>
-                <Stack gap="md">
-                  <Button
-                    onClick={() => handleGenerateSVG(geneStructures[0])}
-                    disabled={isLoading}
-                    loading={isLoading}
-                    leftSection={<i className="bx bx-edit" />}
-                    fullWidth
-                  >
-                    Regenerate
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleResetUpload}
-                    disabled={isLoading}
-                    leftSection={<i className="bx bx-refresh" />}
-                    fullWidth
-                  >
-                    Back to Upload
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowExportDialog(true)}
-                    disabled={isLoading || !svgData}
-                    leftSection={<i className="bx bx-download" />}
-                    fullWidth
-                  >
-                    Export
-                  </Button>
-                </Stack>
-              </Card>
-            </div>
-          </div>
-        </>
+                <Card shadow="xl" padding="lg" radius="md">
+                  <Title order={3} mb="md">
+                    Basic Settings
+                  </Title>
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500} mb="xs">
+                      Color Settings:
+                    </Text>
+                    <Grid>
+                      <Grid.Col span={4}>
+                        <ColorInput
+                          label="UTRs"
+                          value={utrColor}
+                          onChange={setUtrColor}
+                          format="hex"
+                          withEyeDropper={false}
+                          styles={{
+                            swatch: {
+                              display: "none",
+                            },
+                          }}
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={4}>
+                        <ColorInput
+                          label="Exons"
+                          value={exonColor}
+                          onChange={setExonColor}
+                          format="hex"
+                          withEyeDropper={false}
+                        />
+                      </Grid.Col>
+                      <Grid.Col span={4}>
+                        <ColorInput
+                          label="Introns"
+                          value={lineColor}
+                          onChange={setLineColor}
+                          format="hex"
+                          withEyeDropper={false}
+                        />
+                      </Grid.Col>
+                    </Grid>
+                  </Stack>
+                </Card>
+
+                <Card shadow="xl" padding="lg" radius="md">
+                  <Title order={3} mb="md">
+                    Detail Settings
+                  </Title>
+                </Card>
+              </Stack>
+            </Grid.Col>
+          </Grid>
+        </Stack>
       )}
 
       {/* Export dialog */}

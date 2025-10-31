@@ -23,15 +23,12 @@ app.add_middleware(
 # 描画の色やスタイル設定
 # =====================
 
-FEATURE_COLORS = {
-    'exon': 'lightblue',
-    'CDS': 'lightblue',
-    'five_prime_UTR': 'orange',
-    'three_prime_UTR': 'lightgreen',
-    'intron': 'black',
-    'domain': 'green',
-    'deletion': 'none',  # 塗りつぶしなし（点線表示用）
-    'highlight_intron': 'blue',
+# デフォルト色設定
+DEFAULT_COLORS = {
+    'utr_color': 'orange',
+    'exon_color': 'lightblue',
+    'line_color': 'black',
+    'domain_color': 'green',
 }
 
 FEATURE_OUTLINES = {
@@ -258,7 +255,14 @@ def parse_gff_for_transcript(gff_file, transcript_id):
 # 描画関数
 # =====================
 
-def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0):
+def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0,
+                        utr_color=None, exon_color=None, line_color=None, domain_color=None):
+    # デフォルト色を設定
+    utr_color = utr_color or DEFAULT_COLORS['utr_color']
+    exon_color = exon_color or DEFAULT_COLORS['exon_color']
+    line_color = line_color or DEFAULT_COLORS['line_color']
+    domain_color = domain_color or DEFAULT_COLORS['domain_color']
+
     min_start = gene.to_relative()
     all_features = gene.get_sorted_features()
     max_end = max(f.end / shrink_factor for f in all_features)
@@ -295,7 +299,12 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                 )
             )
         elif feat.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR'):
-            fill_color = FEATURE_COLORS.get(feat.feature_type, 'gray')
+            # five_prime_UTR と three_prime_UTR は utr_color、exon/CDS は exon_color
+            if feat.feature_type in ('five_prime_UTR', 'three_prime_UTR'):
+                fill_color = utr_color
+            else:
+                fill_color = exon_color
+
             stroke_color = FEATURE_OUTLINES.get(feat.feature_type, 'black')
             stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
             outline_enabled = FEATURE_OUTLINE_ENABLED.get(feat.feature_type, True)
@@ -316,7 +325,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                     dwg.line(
                         start=(x_start, y_line),
                         end=(x_end, y_line),
-                        stroke=FEATURE_COLORS.get('intron', 'black'),
+                        stroke=line_color,
                         stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
                     )
                 )
@@ -331,7 +340,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                 dwg.rect(
                     insert=(x_start, y_pos),
                     size=(width, height_feature),
-                    fill=FEATURE_COLORS.get('domain', 'green'),
+                    fill=domain_color,
                     stroke=FEATURE_OUTLINES.get('domain', 'black'),
                     stroke_width=FEATURE_OUTLINE_WIDTHS.get('domain', 1)
                 )
@@ -343,14 +352,14 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     box_size = 12
     spacing = 20
     legend_items = [
-        ('domain', 'Domain'),
-        ('CDS', 'Exon/CDS'),
-        ('five_prime_UTR', "5' UTR"),
-        ('three_prime_UTR', "3' UTR"),
-        ('intron', 'Intron'),
-        ('deletion', 'Deletion')
+        ('domain', 'Domain', domain_color),
+        ('CDS', 'Exon/CDS', exon_color),
+        ('five_prime_UTR', "5' UTR", utr_color),
+        ('three_prime_UTR', "3' UTR", utr_color),
+        ('intron', 'Intron', line_color),
+        ('deletion', 'Deletion', None)
     ]
-    for i, (feat_key, label) in enumerate(legend_items):
+    for i, (feat_key, label, color) in enumerate(legend_items):
         y_legend = legend_y + i * spacing
         if feat_key == 'deletion':
             dwg.add(dwg.rect(
@@ -366,11 +375,10 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             dwg.add(dwg.line(
                 start=(legend_x, y_line),
                 end=(legend_x + box_size, y_line),
-                stroke=FEATURE_COLORS.get('intron', 'black'),
+                stroke=color,
                 stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
             ))
         else:
-            color = FEATURE_COLORS.get(feat_key, 'gray')
             dwg.add(dwg.rect(
                 insert=(legend_x, y_legend),
                 size=(box_size, box_size),
@@ -587,8 +595,14 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
         # イントロンを追加
         gene.add_introns()
 
-        # SVGを生成
-        svg_content = draw_gene_structure(gene)
+        # SVGを生成（DrawSettingsから色を取得）
+        draw_settings = request.draw_settings
+        svg_content = draw_gene_structure(
+            gene,
+            utr_color=draw_settings.utr_color,
+            exon_color=draw_settings.exon_color,
+            line_color=draw_settings.line_color
+        )
 
         return Response(content=svg_content, media_type="image/svg+xml")
 
