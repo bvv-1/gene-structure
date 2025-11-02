@@ -26,14 +26,9 @@ export default function FAQ() {
   return (
     <Container size="lg" py="xl">
       <Stack gap="xl">
-        <div>
-          <Title order={1} mb="md">
-            Frequently Asked Questions
-          </Title>
-          <Text size="lg" c="dimmed">
-            Common questions about the gene structure visualization tool
-          </Text>
-        </div>
+        <Title order={1} mb="md">
+          Frequently Asked Questions
+        </Title>
 
         <Card shadow="xl" padding="lg" radius="md">
           <Accordion variant="separated" radius="md">
