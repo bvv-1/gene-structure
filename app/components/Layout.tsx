@@ -1,8 +1,17 @@
 "use client";
 
-import { Anchor, AppShell, Container, Group, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  Anchor,
+  AppShell,
+  Container,
+  Group,
+  Text,
+  Title,
+} from "@mantine/core";
 import { MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
+import { IconBrandGithub } from "@tabler/icons-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -38,6 +47,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Anchor href="/faq" c="dark" underline="hover">
                   FAQ
                 </Anchor>
+                <ActionIcon
+                  component="a"
+                  href="https://github.com/bvv-1/gene-structure"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="subtle"
+                  color="dark"
+                  size="lg"
+                  aria-label="GitHub"
+                >
+                  <IconBrandGithub size={24} />
+                </ActionIcon>
               </Group>
             </Group>
           </Container>
