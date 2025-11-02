@@ -3,8 +3,11 @@
 import { Anchor, AppShell, Container, Group, Text, Title } from "@mantine/core";
 import { MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   return (
     <MantineProvider>
       <AppShell
@@ -17,10 +20,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Container size="xl" h="100%">
             <Group h="100%" justify="space-between" px="md">
               <Group gap="sm">
-                <i className="bx bx-dna text-4xl text-blue-600" />
-                <Title order={1} size="h2">
-                  Gene Structure Visualizer
-                </Title>
+                <Image
+                  src="/logo.png"
+                  alt="logo"
+                  width={3757 / 20}
+                  height={1290 / 20}
+                  onClick={() => router.push("/")}
+                />
               </Group>
               <Group gap="xl">
                 <Anchor href="/" c="dark" underline="hover">
