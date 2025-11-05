@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List, Dict
 import io
 import svgwrite
@@ -441,54 +441,96 @@ class GeneStructureInfo(BaseModel):
 class GeneStructureRequest(BaseModel):
     draw_settings: DrawSettings
     gene_structure: GeneStructureInfo
+    deletion_regions: List[List[int]] = []
+    domains: List[Dict] = []
+    protein_domain_start: Optional[int] = None
+    protein_domain_end: Optional[int] = None
+    protein_domain_name: Optional[str] = None
+
+    @field_validator('deletion_regions')
+    @classmethod
+    def validate_deletion_regions(cls, v):
+        """deletion_regionsのバリデーション"""
+        for i, region in enumerate(v):
+            if len(region) != 2:
+                raise ValueError(f"Deletion region {i} must have exactly 2 elements [start, end]")
+            start, end = region
+            if start <= 0 or end <= 0:
+                raise ValueError(f"Deletion region {i}: coordinates must be positive integers (got start={start}, end={end})")
+            if start >= end:
+                raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
+        return v
+
+    @field_validator('protein_domain_start')
+    @classmethod
+    def validate_protein_domain_start(cls, v):
+        """protein_domain_startのバリデーション"""
+        if v is not None and v <= 0:
+            raise ValueError(f"protein_domain_start must be a positive integer (got {v})")
+        return v
+
+    @field_validator('protein_domain_end')
+    @classmethod
+    def validate_protein_domain_end(cls, v):
+        """protein_domain_endのバリデーション"""
+        if v is not None and v <= 0:
+            raise ValueError(f"protein_domain_end must be a positive integer (got {v})")
+        return v
+
+    @model_validator(mode='after')
+    def validate_protein_domain(self):
+        """protein domainの整合性チェック"""
+        start = self.protein_domain_start
+        end = self.protein_domain_end
+        name = self.protein_domain_name
+
+        # 3つのうち1つでも設定されている場合、すべてが必要
+        if any([start, end, name]):
+            if not all([start, end, name]):
+                raise ValueError(
+                    "protein_domain_start, protein_domain_end, and protein_domain_name must all be provided together"
+                )
+            if start >= end:
+                raise ValueError(
+                    f"protein_domain_start ({start}) must be less than protein_domain_end ({end})"
+                )
+        return self
+
+    @field_validator('domains')
+    @classmethod
+    def validate_domains(cls, v):
+        """domainsのバリデーション"""
+        for i, domain in enumerate(v):
+            # 必須フィールドのチェック
+            if 'start' not in domain:
+                raise ValueError(f"Domain {i}: 'start' field is required")
+            if 'end' not in domain:
+                raise ValueError(f"Domain {i}: 'end' field is required")
+            if 'name' not in domain:
+                raise ValueError(f"Domain {i}: 'name' field is required")
+
+            start = domain['start']
+            end = domain['end']
+            name = domain['name']
+
+            # 型チェック
+            if not isinstance(start, int):
+                raise ValueError(f"Domain {i}: 'start' must be an integer (got {type(start).__name__})")
+            if not isinstance(end, int):
+                raise ValueError(f"Domain {i}: 'end' must be an integer (got {type(end).__name__})")
+            if not isinstance(name, str):
+                raise ValueError(f"Domain {i}: 'name' must be a string (got {type(name).__name__})")
+
+            # 範囲チェック
+            if start <= 0 or end <= 0:
+                raise ValueError(f"Domain {i}: coordinates must be positive integers (got start={start}, end={end})")
+            if start >= end:
+                raise ValueError(f"Domain {i}: start ({start}) must be less than end ({end})")
+        return v
 
 # =====================
 # エンドポイント
 # =====================
-
-@app.post("/api/py/draw-gene")
-async def draw_gene(request: DrawGeneRequest):
-    """
-    遺伝子構造を描画するエンドポイント
-    """
-    try:
-        # GFFファイルをパース
-        gene = parse_gff_for_transcript(request.gff_file_path, request.transcript_id)
-
-        if not gene:
-            raise HTTPException(status_code=404, detail=f"Transcript {request.transcript_id} not found in GFF file")
-
-        # イントロンを追加
-        gene.add_introns()
-
-        # 相対座標に変換
-        gene.to_relative()
-
-        # プロテインドメインを追加（指定されている場合）
-        if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
-            gene.add_domain_from_protein_coords(
-                request.protein_domain_start,
-                request.protein_domain_end,
-                request.protein_domain_name
-            )
-
-        # ドメインを追加
-        if request.domains:
-            gene.add_domains(request.domains)
-
-        # デリーション処理
-        deletion_regions_as_tuples = [tuple(r) for r in request.deletion_regions]
-        gene.update_features_with_deletions(deletion_regions_as_tuples)
-
-        # SVGを生成
-        svg_content = draw_gene_structure(gene)
-
-        return Response(content=svg_content, media_type="image/svg+xml")
-
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="GFF file not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/py/generate-gene-structure-svg")
 async def generate_gene_structure_svg(request: GeneStructureRequest):
@@ -595,13 +637,36 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
         # イントロンを追加
         gene.add_introns()
 
+        # 相対座標に変換
+        gene.to_relative()
+
+        # プロテインドメインを追加（指定されている場合）
+        if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
+            gene.add_domain_from_protein_coords(
+                request.protein_domain_start,
+                request.protein_domain_end,
+                request.protein_domain_name
+            )
+
+        # ドメインを追加
+        if request.domains:
+            gene.add_domains(request.domains)
+            print("Added domains:", request.domains)
+
+        # デリーション処理
+        if request.deletion_regions:
+            deletion_regions_as_tuples = [tuple(r) for r in request.deletion_regions]
+            gene.update_features_with_deletions(deletion_regions_as_tuples)
+            print("Applied deletions:", request.deletion_regions)
+
         # SVGを生成（DrawSettingsから色を取得）
         draw_settings = request.draw_settings
         svg_content = draw_gene_structure(
             gene,
             utr_color=draw_settings.utr_color,
             exon_color=draw_settings.exon_color,
-            line_color=draw_settings.line_color
+            line_color=draw_settings.line_color,
+            domain_color=DEFAULT_COLORS['domain_color']
         )
 
         return Response(content=svg_content, media_type="image/svg+xml")

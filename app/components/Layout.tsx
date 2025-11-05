@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  ActionIcon,
-  Anchor,
-  AppShell,
-  Container,
-  Group,
-  Text,
-  Title,
-} from "@mantine/core";
+import { ActionIcon, Anchor, AppShell, Container, Group } from "@mantine/core";
 import { MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
+import { Notifications } from "@mantine/notifications";
 import { IconBrandGithub } from "@tabler/icons-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -19,6 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   return (
     <MantineProvider>
+      <Notifications />
       <AppShell
         header={{ height: 80 }}
         footer={{ height: 60 }}

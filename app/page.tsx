@@ -19,6 +19,7 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { Dropzone } from "@mantine/dropzone";
 import {
   IconArrowRight,
@@ -56,6 +57,11 @@ type DrawSettings = {
 type GeneStructureRequest = {
   draw_settings: DrawSettings;
   gene_structure: GeneStructureInfo;
+  deletion_regions?: number[][];
+  domains?: { start: number; end: number; name: string }[];
+  protein_domain_start?: number;
+  protein_domain_end?: number;
+  protein_domain_name?: string;
 };
 
 type ExportSettings = {
@@ -79,6 +85,58 @@ const postFetcher = async (url: string, data: GeneStructureRequest | null) => {
   });
 
   if (!response.ok) {
+    // 422エラー（バリデーションエラー）の場合、詳細を取得
+    if (response.status === 422) {
+      try {
+        const errorData = await response.json();
+        // Pydanticのバリデーションエラーをパース
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail
+            .map((err: { loc?: string[]; msg: string }) => {
+              const field = err.loc?.join(".") || "unknown";
+              return `${field}: ${err.msg}`;
+            })
+            .join("\n");
+
+          notifications.show({
+            title: "Validation Error",
+            message: errorMessages,
+            color: "red",
+            autoClose: 10000,
+          });
+          throw new Error("Validation error");
+        }
+
+        if (errorData.detail) {
+          notifications.show({
+            title: "Validation Error",
+            message: errorData.detail,
+            color: "red",
+            autoClose: 10000,
+          });
+          throw new Error("Validation error");
+        }
+      } catch (e) {
+        // JSONパースに失敗した場合
+        if (!(e instanceof Error && e.message === "Validation error")) {
+          notifications.show({
+            title: "Error",
+            message: `API error: ${response.status}`,
+            color: "red",
+            autoClose: 5000,
+          });
+        }
+        throw e;
+      }
+    }
+
+    // その他のエラー
+    notifications.show({
+      title: "Error",
+      message: `API error: ${response.status}`,
+      color: "red",
+      autoClose: 5000,
+    });
     throw new Error(`API error: ${response.status}`);
   }
 
@@ -106,6 +164,16 @@ export default function Home() {
     background: "white",
     filename: "gene_structure",
   });
+
+  // Deletion and domain settings
+  const [deletionRegions, setDeletionRegions] = useState<number[][]>([]);
+  const [proteinDomainStart, setProteinDomainStart] = useState<
+    number | undefined
+  >();
+  const [proteinDomainEnd, setProteinDomainEnd] = useState<
+    number | undefined
+  >();
+  const [proteinDomainName, setProteinDomainName] = useState<string>("");
 
   const fuseInstance = useMemo(() => {
     const fuse = new Fuse(geneStructures, {
@@ -135,11 +203,21 @@ export default function Home() {
   // ファイル処理関数（アップロード→解析）
   const handleFileProcess = async () => {
     if (!selectedFile) {
-      alert("Select a GFF file");
+      notifications.show({
+        title: "Error",
+        message: "Select a GFF file",
+        color: "red",
+        autoClose: 5000,
+      });
       return;
     }
     if (selectedTranscripts.length === 0) {
-      alert("Select at least one gene/transcript");
+      notifications.show({
+        title: "Error",
+        message: "Select at least one gene/transcript",
+        color: "red",
+        autoClose: 5000,
+      });
       return;
     }
 
@@ -151,9 +229,12 @@ export default function Home() {
       await handleGenerateSVG(geneStructures[0]);
     } catch (error) {
       console.error("Error processing file:", error);
-      alert(
-        `An error occurred while processing the file: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      notifications.show({
+        title: "Error",
+        message: `An error occurred while processing the file: ${error instanceof Error ? error.message : "Unknown error"}`,
+        color: "red",
+        autoClose: 5000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +243,7 @@ export default function Home() {
   const getRequestData = (): GeneStructureRequest | null => {
     if (geneStructures.length === 0) return null;
 
-    return {
+    const requestData: GeneStructureRequest = {
       draw_settings: {
         mode: "domain",
         utr_color: utrColor,
@@ -174,6 +255,20 @@ export default function Home() {
         selectedTranscripts.includes(gs.transcript_id),
       )[0],
     };
+
+    // Add deletion regions if any
+    if (deletionRegions.length > 0) {
+      requestData.deletion_regions = deletionRegions;
+    }
+
+    // Add protein domain if specified
+    if (proteinDomainStart && proteinDomainEnd && proteinDomainName) {
+      requestData.protein_domain_start = proteinDomainStart;
+      requestData.protein_domain_end = proteinDomainEnd;
+      requestData.protein_domain_name = proteinDomainName;
+    }
+
+    return requestData;
   };
 
   const { data: svgData, mutate: mutateSVG } = useSWR(
@@ -191,7 +286,12 @@ export default function Home() {
 
   const handleGenerateSVG = async (structure: GeneStructureInfo | null) => {
     if (!structure) {
-      alert("Please process the file first");
+      notifications.show({
+        title: "Error",
+        message: "Please process the file first",
+        color: "red",
+        autoClose: 5000,
+      });
       setUiState("upload");
       return;
     }
@@ -202,7 +302,7 @@ export default function Home() {
       await mutateSVG();
     } catch (error) {
       console.error("Error generating SVG:", error);
-      alert("An error occurred while generating the SVG.");
+      // postFetcherで既にtoast表示しているので、ここでは表示しない
     } finally {
       setIsLoading(false);
     }
@@ -332,7 +432,12 @@ export default function Home() {
                               getGeneStructureInfo(mRNAs);
                             setGeneStructures(geneStructureInfo);
                           } catch (error) {
-                            alert(`Error parsing GFF file: ${error}`);
+                            notifications.show({
+                              title: "Error",
+                              message: `Error parsing GFF file: ${error}`,
+                              color: "red",
+                              autoClose: 5000,
+                            });
                           } finally {
                             setIsLoading(false);
                           }
@@ -427,7 +532,7 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
 
                     {selectedTranscripts.length > 0 && (
                       <>
-                        <Text size="sm" fw={500} mb="xs">
+                        <Text size="sm" fw={500}>
                           Selected Transcripts:
                         </Text>
                         <Stack gap="xs">
@@ -540,8 +645,8 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                   <Title order={3} mb="md">
                     Basic Settings
                   </Title>
-                  <Stack gap="xs">
-                    <Text size="sm" fw={500} mb="xs">
+                  <Stack>
+                    <Text size="sm" fw={500}>
                       Color Settings:
                     </Text>
                     <Grid>
@@ -585,6 +690,107 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                   <Title order={3} mb="md">
                     Detail Settings
                   </Title>
+                  <Stack gap="md">
+                    <Stack>
+                      <Text size="sm" fw={500} mb="xs">
+                        Protein Domain (amino acid coordinates):
+                      </Text>
+                      <Grid>
+                        <Grid.Col span={4}>
+                          <NumberInput
+                            label="Start"
+                            placeholder="1"
+                            value={proteinDomainStart}
+                            onChange={(val) =>
+                              setProteinDomainStart(
+                                val === "" ? undefined : Number(val),
+                              )
+                            }
+                            min={1}
+                          />
+                        </Grid.Col>
+                        <Grid.Col span={4}>
+                          <NumberInput
+                            label="End"
+                            placeholder="100"
+                            value={proteinDomainEnd}
+                            onChange={(val) =>
+                              setProteinDomainEnd(
+                                val === "" ? undefined : Number(val),
+                              )
+                            }
+                            min={1}
+                          />
+                        </Grid.Col>
+                        <Grid.Col span={4}>
+                          <TextInput
+                            label="Name"
+                            placeholder="Domain name"
+                            value={proteinDomainName}
+                            onChange={(e) =>
+                              setProteinDomainName(e.currentTarget.value)
+                            }
+                          />
+                        </Grid.Col>
+                      </Grid>
+                    </Stack>
+
+                    <Stack>
+                      <Text size="sm" fw={500} mb="xs">
+                        Deletion Regions (genomic coordinates):
+                      </Text>
+                      <Stack gap="xs">
+                        {deletionRegions.map((region, idx) => (
+                          <Group
+                            key={`deletion-${idx}-${region[0]}-${region[1]}`}
+                            gap="xs"
+                          >
+                            <NumberInput
+                              placeholder="Start"
+                              value={region[0]}
+                              onChange={(val) => {
+                                const newRegions = [...deletionRegions];
+                                newRegions[idx][0] = Number(val);
+                                setDeletionRegions(newRegions);
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <NumberInput
+                              placeholder="End"
+                              value={region[1]}
+                              onChange={(val) => {
+                                const newRegions = [...deletionRegions];
+                                newRegions[idx][1] = Number(val);
+                                setDeletionRegions(newRegions);
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setDeletionRegions(
+                                  deletionRegions.filter((_, i) => i !== idx),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDeletionRegions([...deletionRegions, [0, 0]]);
+                          }}
+                        >
+                          Add Deletion Region
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  </Stack>
                 </Card>
               </Stack>
             </Grid.Col>
