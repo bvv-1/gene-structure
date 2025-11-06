@@ -166,7 +166,9 @@ export default function Home() {
   });
 
   // Deletion and domain settings
-  const [deletionRegions, setDeletionRegions] = useState<number[][]>([]);
+  const [deletionRegions, setDeletionRegions] = useState<
+    Array<[number | undefined, number | undefined]>
+  >([]);
   const [proteinDomainStart, setProteinDomainStart] = useState<
     number | undefined
   >();
@@ -242,6 +244,13 @@ export default function Home() {
 
   const getRequestData = (): GeneStructureRequest | null => {
     if (geneStructures.length === 0) return null;
+    if (selectedTranscripts.length === 0) return null;
+
+    const selectedGeneStructure = geneStructures.find((gs) =>
+      selectedTranscripts.includes(gs.transcript_id),
+    );
+
+    if (!selectedGeneStructure) return null;
 
     const requestData: GeneStructureRequest = {
       draw_settings: {
@@ -251,14 +260,22 @@ export default function Home() {
         line_color: lineColor,
         intron_shape: "straight",
       },
-      gene_structure: geneStructures.filter((gs) =>
-        selectedTranscripts.includes(gs.transcript_id),
-      )[0],
+      gene_structure: selectedGeneStructure,
     };
 
-    // Add deletion regions if any
-    if (deletionRegions.length > 0) {
-      requestData.deletion_regions = deletionRegions;
+    // Add deletion regions if any (filter out invalid regions)
+    const validDeletionRegions = deletionRegions
+      .filter(
+        (region): region is [number, number] =>
+          region[0] !== undefined &&
+          region[1] !== undefined &&
+          region[0] > 0 &&
+          region[1] > 0,
+      )
+      .map(([start, end]) => [start, end]);
+
+    if (validDeletionRegions.length > 0) {
+      requestData.deletion_regions = validDeletionRegions;
     }
 
     // Add protein domain if specified
@@ -272,11 +289,13 @@ export default function Home() {
   };
 
   const { data: svgData, mutate: mutateSVG } = useSWR(
-    ["/api/py/generate-gene-structure-svg", getRequestData()],
-    geneStructures
-      ? () =>
-          postFetcher("/api/py/generate-gene-structure-svg", getRequestData())
-      : null,
+    () => {
+      const requestData = getRequestData();
+      return requestData
+        ? ["/api/py/generate-gene-structure-svg", requestData]
+        : null;
+    },
+    ([url, data]) => postFetcher(url, data),
     {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
@@ -739,6 +758,9 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                       <Text size="sm" fw={500} mb="xs">
                         Deletion Regions (genomic coordinates):
                       </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        Enter positive integers (e.g., start: 12, end: 2000)
+                      </Text>
                       <Stack gap="xs">
                         {deletionRegions.map((region, idx) => (
                           <Group
@@ -746,23 +768,27 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                             gap="xs"
                           >
                             <NumberInput
-                              placeholder="Start"
+                              placeholder="e.g., 12"
                               value={region[0]}
                               onChange={(val) => {
                                 const newRegions = [...deletionRegions];
-                                newRegions[idx][0] = Number(val);
+                                newRegions[idx][0] =
+                                  val === "" ? undefined : Number(val);
                                 setDeletionRegions(newRegions);
                               }}
+                              min={1}
                               style={{ flex: 1 }}
                             />
                             <NumberInput
-                              placeholder="End"
+                              placeholder="e.g., 2000"
                               value={region[1]}
                               onChange={(val) => {
                                 const newRegions = [...deletionRegions];
-                                newRegions[idx][1] = Number(val);
+                                newRegions[idx][1] =
+                                  val === "" ? undefined : Number(val);
                                 setDeletionRegions(newRegions);
                               }}
+                              min={1}
                               style={{ flex: 1 }}
                             />
                             <Button
@@ -783,7 +809,10 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setDeletionRegions([...deletionRegions, [0, 0]]);
+                            setDeletionRegions([
+                              ...deletionRegions,
+                              [undefined, undefined],
+                            ]);
                           }}
                         >
                           Add Deletion Region
