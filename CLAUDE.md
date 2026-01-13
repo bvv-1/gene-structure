@@ -25,6 +25,10 @@ npm run test          # Vitest
 npm run lint          # Next.js ESLint
 npm run fmt           # Biome (./app配下のフォーマット)
 npm run ts            # TypeScript型チェック
+
+# OpenAPI型生成（orval）
+npm run generate:api  # openapi.jsonからTypeScript型を生成
+npm run fetch:openapi # FastAPIからOpenAPIスキーマをエクスポート
 ```
 
 ## アーキテクチャ
@@ -80,4 +84,33 @@ npm run ts            # TypeScript型チェック
 ### バックエンド
 - FastAPI
 - svgwrite（SVG生成）
+- reportlab（PDF生成）
 - Pydantic（バリデーション）
+
+## トラブルシューティング
+
+### ポート競合
+```bash
+# ポート3000が使用中の場合
+lsof -i :3000
+kill -9 <PID>
+
+# ポート8000が使用中の場合
+lsof -i :8000
+kill -9 <PID>
+```
+
+### venvが見つからない
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### OpenAPI型が古い
+```bash
+npm run fetch:openapi && npm run generate:api
+```
+
+### Mantineコンポーネントのスタイルが適用されない
+`app/layout.tsx`で`@mantine/core/styles.css`がインポートされているか確認。
