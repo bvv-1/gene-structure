@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 
 class GeneFeature:
@@ -206,7 +206,7 @@ class GeneStructureInfo(BaseModel):
     score: Optional[float] = None
     strand: Optional[str] = None
     phase: Optional[str] = None
-    attributes: Optional[Dict] = None
+    attributes: Optional[Dict[str, Any]] = None
     transcript_id: str
     total_length: int
     exons: List[Position]
