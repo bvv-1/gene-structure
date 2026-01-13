@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SubagentStop": [
+      {
+        "matcher": "Plan",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\n\u2705 Planning complete! To create a worktree for this feature, run:\n   /create-worktree <feature-name>\n'"
+          }
+        ]
+      }
+    ]
+  }
+}
