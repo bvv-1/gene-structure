@@ -1,5 +1,7 @@
 # geneSTRUCTURE
 
+[![Generate API Types](https://github.com/bvv-1/gene-structure/actions/workflows/generate-api-types.yml/badge.svg)](https://github.com/bvv-1/gene-structure/actions/workflows/generate-api-types.yml)
+
 遺伝子構造を視覚化するためのWebアプリケーションとCLIツール
 
 https://gene-structure.vercel.app/
@@ -176,3 +178,27 @@ domains = [
 - Biome（フォーマッター/リンター）
 - Vitest（テスト）
 - mise（Node.jsバージョン管理）
+- orval（OpenAPI型生成）
+
+## テスト
+
+```bash
+# フロントエンドテスト（Vitest）
+npm run test
+
+# 型チェック
+npm run ts
+
+# リント・フォーマット
+npm run lint
+npm run fmt
+```
+
+## コントリビュート
+
+1. このリポジトリをフォーク
+2. feature ブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'feat: add amazing feature'`)
+4. ブランチをプッシュ (`git push origin feature/amazing-feature`)
+5. Pull Request を作成
+
