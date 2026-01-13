@@ -498,23 +498,17 @@ export default function Home() {
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
       {uiState === "upload" && (
         <Stack>
           <Title order={2} mb="md">
             Upload
           </Title>
 
-          <Stack mb="8" gap="md">
+          <Stack mb={32} gap="md">
             <Grid gutter="md">
               <Grid.Col span={6}>
-                <Card
-                  shadow="xl"
-                  padding="lg"
-                  radius="md"
-                  className="mb-8"
-                  h="100%"
-                >
+                <Card shadow="xl" padding="lg" radius="md" mb={32} h="100%">
                   <Title order={3} mb="md">
                     Upload File
                   </Title>
@@ -602,7 +596,7 @@ export default function Home() {
                       </Group>
                     </Dropzone>
 
-                    <div className="mt-4">
+                    <div style={{ marginTop: "1rem" }}>
                       <Text fw={500} mb="xs">
                         Example GFF3 Format:
                       </Text>
@@ -619,13 +613,7 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
               </Grid.Col>
 
               <Grid.Col span={6}>
-                <Card
-                  shadow="xl"
-                  padding="lg"
-                  radius="md"
-                  className="mb-8"
-                  h="100%"
-                >
+                <Card shadow="xl" padding="lg" radius="md" mb={32} h="100%">
                   <Title order={3} mb="md">
                     Search Genes/Transcripts
                   </Title>
