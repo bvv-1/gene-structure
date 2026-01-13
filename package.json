@@ -8,7 +8,6 @@
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "test": "vitest",
     "fmt": "biome check --write ./app",
     "ts": "tsc --noEmit"
