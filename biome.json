@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": []
+    "ignore": ["app/lib/api/generated/**"]
   },
   "formatter": {
     "enabled": true,
