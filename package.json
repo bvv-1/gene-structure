@@ -8,6 +8,7 @@
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint",
     "test": "vitest",
     "fmt": "biome check --write ./app",
     "ts": "tsc --noEmit"
@@ -30,17 +31,14 @@
     "react-dom": "^19.0.0",
     "react-svg-pan-zoom": "^3.13.1",
     "swr": "^2.3.3",
-    "tailwind-preset-mantine": "^3.0.2",
     "typescript": "5.6.2",
     "vitest": "^3.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@tailwindcss/postcss": "^4.1.16",
     "@types/node": "^24.9.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "@types/react-svg-pan-zoom": "^3.3.9",
-    "tailwindcss": "^4.1.16"
+    "@types/react-svg-pan-zoom": "^3.3.9"
   }
 }
