@@ -7,6 +7,7 @@ import {
   Card,
   Code,
   ColorInput,
+  Divider,
   Grid,
   Group,
   Modal,
@@ -30,7 +31,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import Fuse from "fuse.js";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import SvgViewer from "./components/SvgViewer";
@@ -153,6 +154,10 @@ export default function Home() {
   const [exonColor, setExonColor] = useState("#000000");
   const [lineColor, setLineColor] = useState("#000000");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedPresetGff, setSelectedPresetGff] = useState<string | null>(null);
+  const [presetGffOptions, setPresetGffOptions] = useState<
+    Array<{ value: string; label: string; group: string }>
+  >([]);
   const [width, setWidth] = useState(1200);
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -176,6 +181,62 @@ export default function Home() {
     number | undefined
   >();
   const [proteinDomainName, setProteinDomainName] = useState<string>("");
+
+  // Load preset GFF files from public/gffs
+  useEffect(() => {
+    const loadPresetGffs = async () => {
+      try {
+        const response = await fetch("/api/list-gffs");
+        const data = await response.json();
+        if (data.files) {
+          setPresetGffOptions(data.files);
+        }
+      } catch (error) {
+        console.error("Error loading preset GFF files:", error);
+      }
+    };
+    loadPresetGffs();
+  }, []);
+
+  // Handle preset GFF selection
+  const handlePresetGffSelect = async (value: string | null) => {
+    if (!value) return;
+
+    setSelectedPresetGff(value);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(value);
+      const text = await response.text();
+      const blob = new Blob([text], { type: "text/plain" });
+      const file = new File([blob], value.split("/").pop() || "preset.gff", {
+        type: "text/plain",
+      });
+
+      setSelectedFile(file);
+      const gffData = await parseGff(file);
+      const mRNAs = getmRNAs(gffData);
+      const geneStructureInfo = getGeneStructureInfo(mRNAs);
+      setGeneStructures(geneStructureInfo);
+
+      notifications.show({
+        title: "Success",
+        message: "Preset GFF file loaded successfully",
+        color: "green",
+        autoClose: 3000,
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: `Error loading preset GFF file: ${error}`,
+        color: "red",
+        autoClose: 5000,
+      });
+      setSelectedPresetGff(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fuseInstance = useMemo(() => {
     const fuse = new Fuse(geneStructures, {
@@ -360,6 +421,7 @@ export default function Home() {
     // setGeneStructures([]);
     setSelectedTranscripts([]);
     setSelectedFile(null);
+    setSelectedPresetGff(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -434,6 +496,20 @@ export default function Home() {
                   </Title>
 
                   <Stack>
+                    <Select
+                      label="Or select from preset GFF files"
+                      placeholder="Choose a preset GFF file"
+                      data={presetGffOptions}
+                      value={selectedPresetGff}
+                      onChange={handlePresetGffSelect}
+                      searchable
+                      clearable
+                      disabled={isLoading}
+                      maxDropdownHeight={300}
+                    />
+
+                    <Divider label="OR" labelPosition="center" />
+
                     <Dropzone
                       style={{
                         border: "2px dashed #D9D9D9",
