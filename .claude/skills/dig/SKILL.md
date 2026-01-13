@@ -1,6 +1,7 @@
 ---
-allowed-tools: AskUserQuestion
+name: dig
 description: わからないことがなくなるまで質問して要件を明確にする
+allowed-tools: AskUserQuestion
 ---
 
 ## Your task
