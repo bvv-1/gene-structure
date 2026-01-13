@@ -4,7 +4,6 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
-import type { GeneStructureInfoAttributesAnyOf } from "./geneStructureInfoAttributesAnyOf";
+import type { GeneStructureInfoAttributesAnyOf } from './geneStructureInfoAttributesAnyOf';
 
-export type GeneStructureInfoAttributes =
-  GeneStructureInfoAttributesAnyOf | null;
+export type GeneStructureInfoAttributes = GeneStructureInfoAttributesAnyOf | null;

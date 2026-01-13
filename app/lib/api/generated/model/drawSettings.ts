@@ -4,9 +4,9 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
-import type { DrawSettingsGeneHeight } from "./drawSettingsGeneHeight";
-import type { DrawSettingsMarginX } from "./drawSettingsMarginX";
-import type { DrawSettingsMarginY } from "./drawSettingsMarginY";
+import type { DrawSettingsGeneHeight } from './drawSettingsGeneHeight';
+import type { DrawSettingsMarginX } from './drawSettingsMarginX';
+import type { DrawSettingsMarginY } from './drawSettingsMarginY';
 
 export interface DrawSettings {
   mode: string;

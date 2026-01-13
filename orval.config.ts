@@ -9,7 +9,7 @@ export default defineConfig({
       mode: "tags-split",
       target: "./app/lib/api/generated",
       schemas: "./app/lib/api/generated/model",
-      client: "fetch",
+      client: "swr",
       override: {
         mutator: {
           path: "./app/lib/api/custom-fetch.ts",

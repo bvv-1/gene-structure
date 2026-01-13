@@ -4,82 +4,111 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
-import type { GeneStructureRequest, HTTPValidationError } from ".././model";
+import useSwr from 'swr';
+import type {
+  Key,
+  SWRConfiguration
+} from 'swr';
 
-import { customFetch } from "../../custom-fetch";
+import useSWRMutation from 'swr/mutation';
+import type {
+  SWRMutationConfiguration
+} from 'swr/mutation';
 
+import type {
+  GeneStructureRequest,
+  HTTPValidationError
+} from '.././model';
+
+import { customFetch } from '../../custom-fetch';
+
+
+  
+  type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+  
 /**
  * フロントエンドから送られたGeneStructureInfoを基に遺伝子構造を描画するエンドポイント
  * @summary Generate Gene Structure Svg
  */
-export type generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse200 =
-  {
-    data: unknown;
-    status: 200;
-  };
-
-export type generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse422 =
-  {
-    data: HTTPValidationError;
-    status: 422;
-  };
-
-export type generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponseSuccess =
-  generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse200 & {
-    headers: Headers;
-  };
-export type generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponseError =
-  generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse422 & {
-    headers: Headers;
-  };
-
-export type generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse =
-  | generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponseSuccess
-  | generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponseError;
-
-export const getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostUrl =
-  () => {
-    return `/api/py/generate-gene-structure-svg`;
-  };
-
-export const generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost = async (
-  geneStructureRequest: GeneStructureRequest,
-  options?: RequestInit,
-): Promise<generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse> => {
-  return customFetch<generateGeneStructureSvgApiPyGenerateGeneStructureSvgPostResponse>(
-    getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostUrl(),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(geneStructureRequest),
+export const generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost = (
+    geneStructureRequest: GeneStructureRequest,
+ options?: SecondParameter<typeof customFetch>) => {
+    return customFetch<unknown>(
+    {url: `/api/py/generate-gene-structure-svg`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: geneStructureRequest
     },
-  );
-};
+    options);
+  }
+
+
+
+export const getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationFetcher = ( options?: SecondParameter<typeof customFetch>) => {
+  return (_: Key, { arg }: { arg: GeneStructureRequest }) => {
+    return generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost(arg, options);
+  }
+}
+export const getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationKey = () => [`/api/py/generate-gene-structure-svg`] as const;
+
+export type GenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationResult = NonNullable<Awaited<ReturnType<typeof generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost>>>
+export type GenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationError = HTTPValidationError
+
+/**
+ * @summary Generate Gene Structure Svg
+ */
+export const useGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPost = <TError = HTTPValidationError>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost>>, TError, Key, GeneStructureRequest, Awaited<ReturnType<typeof generateGeneStructureSvgApiPyGenerateGeneStructureSvgPost>>> & { swrKey?: string }, request?: SecondParameter<typeof customFetch>}
+) => {
+
+  const {swr: swrOptions, request: requestOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationKey();
+  const swrFn = getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationFetcher(requestOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+/**
+ * @summary Root
+ */
+export const rootGet = (
+    
+ options?: SecondParameter<typeof customFetch>) => {
+    return customFetch<unknown>(
+    {url: `/`, method: 'GET'
+    },
+    options);
+  }
+
+
+
+export const getRootGetKey = () => [`/`] as const;
+
+export type RootGetQueryResult = NonNullable<Awaited<ReturnType<typeof rootGet>>>
+export type RootGetQueryError = unknown
 
 /**
  * @summary Root
  */
-export type rootGetResponse200 = {
-  data: unknown;
-  status: 200;
-};
+export const useRootGet = <TError = unknown>(
+   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof rootGet>>, TError> & { swrKey?: Key, enabled?: boolean }, request?: SecondParameter<typeof customFetch> }
+) => {
+  const {swr: swrOptions, request: requestOptions} = options ?? {}
 
-export type rootGetResponseSuccess = rootGetResponse200 & {
-  headers: Headers;
-};
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getRootGetKey() : null);
+  const swrFn = () => rootGet(requestOptions)
 
-export type rootGetResponse = rootGetResponseSuccess;
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
 
-export const getRootGetUrl = () => {
-  return `/`;
-};
-
-export const rootGet = async (
-  options?: RequestInit,
-): Promise<rootGetResponse> => {
-  return customFetch<rootGetResponse>(getRootGetUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
+  return {
+    swrKey,
+    ...query
+  }
+}

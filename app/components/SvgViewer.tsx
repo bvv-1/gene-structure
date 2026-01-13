@@ -7,6 +7,7 @@ import {
   type Tool,
   type Value,
 } from "react-svg-pan-zoom";
+import { useSvgContent } from "../lib/api";
 
 interface SvgViewerProps {
   svgUrl?: string;
@@ -21,29 +22,12 @@ export default function SvgViewer({
 }: SvgViewerProps) {
   const [tool, setTool] = useState<Tool>(TOOL_NONE);
   const [value, setValue] = useState<Value>({} as Value);
-  const [svgContent, setSvgContent] = useState<string>("");
   const viewerRef = useRef<ReactSVGPanZoom>(null);
 
-  useEffect(() => {
-    if (!svgUrl) {
-      setSvgContent("");
-      return;
-    }
+  // SWR hook for fetching SVG content
+  const { svgContent } = useSvgContent(svgUrl);
 
-    const loadSvg = async () => {
-      try {
-        const response = await fetch(svgUrl);
-        const text = await response.text();
-        setSvgContent(text);
-      } catch (error) {
-        console.error("Error loading SVG:", error);
-        setSvgContent("");
-      }
-    };
-
-    loadSvg();
-  }, [svgUrl]);
-
+  // Fit to viewer when SVG content changes (external system sync - appropriate use of useEffect)
   useEffect(() => {
     if (viewerRef.current && svgContent) {
       viewerRef.current.fitToViewer();
