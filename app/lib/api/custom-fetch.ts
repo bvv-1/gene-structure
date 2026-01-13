@@ -1,16 +1,32 @@
 type ResponseType = "json" | "blob" | "text";
 
+// orval SWR client request format
+export interface OrvalRequestConfig {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  data?: unknown;
+  params?: Record<string, unknown>;
+}
+
 export interface CustomRequestInit extends RequestInit {
   responseType?: ResponseType;
 }
 
+// Custom fetcher compatible with orval SWR client
 export async function customFetch<T>(
-  url: string,
+  config: OrvalRequestConfig,
   options?: CustomRequestInit,
 ): Promise<T> {
+  const { url, method, headers, data } = config;
   const { responseType = "json", ...fetchOptions } = options || {};
 
-  const response = await fetch(url, fetchOptions);
+  const response = await fetch(url, {
+    method,
+    headers: headers as HeadersInit,
+    body: data ? JSON.stringify(data) : undefined,
+    ...fetchOptions,
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -21,20 +37,16 @@ export async function customFetch<T>(
     };
   }
 
-  let data: unknown;
+  let responseData: unknown;
   if (responseType === "blob") {
-    data = await response.blob();
+    responseData = await response.blob();
   } else if (responseType === "text") {
-    data = await response.text();
+    responseData = await response.text();
   } else {
-    data = await response.json();
+    responseData = await response.json();
   }
 
-  return {
-    data,
-    status: response.status,
-    headers: response.headers,
-  } as T;
+  return responseData as T;
 }
 
 export default customFetch;

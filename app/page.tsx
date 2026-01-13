@@ -28,7 +28,7 @@ import {
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 
 import { GeneSelector } from "./components/GeneSelector";
@@ -39,6 +39,7 @@ import {
   type GenerateSvgBlobError,
   type HTTPValidationError,
   generateGeneStructureSvgBlob,
+  useListGffs,
 } from "./lib/api";
 import {
   type GeneStructureInfo,
@@ -173,9 +174,7 @@ export default function Home() {
   const [selectedPresetGff, setSelectedPresetGff] = useState<string | null>(
     null,
   );
-  const [presetGffOptions, setPresetGffOptions] = useState<
-    Array<{ group: string; items: Array<{ value: string; label: string }> }>
-  >([]);
+  const { groupedOptions: presetGffOptions } = useListGffs();
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -202,44 +201,6 @@ export default function Home() {
     number | undefined
   >();
   const [proteinDomainName, setProteinDomainName] = useState<string>("");
-
-  // Load preset GFF files from public/gffs
-  useEffect(() => {
-    const loadPresetGffs = async () => {
-      try {
-        const response = await fetch("/api/list-gffs");
-        const data = await response.json();
-        if (data.files) {
-          // Convert flat array with group property to grouped format for Mantine v8
-          const groupedData: Array<{
-            group: string;
-            items: Array<{ value: string; label: string }>;
-          }> = [];
-          const groupMap = new Map<
-            string,
-            Array<{ value: string; label: string }>
-          >();
-
-          for (const file of data.files) {
-            const group = file.group || "Other";
-            if (!groupMap.has(group)) {
-              groupMap.set(group, []);
-            }
-            groupMap.get(group)?.push({ value: file.value, label: file.label });
-          }
-
-          for (const [group, items] of groupMap) {
-            groupedData.push({ group, items });
-          }
-
-          setPresetGffOptions(groupedData);
-        }
-      } catch (error) {
-        console.error("Error loading preset GFF files:", error);
-      }
-    };
-    loadPresetGffs();
-  }, []);
 
   // Handle preset GFF selection
   const handlePresetGffSelect = async (value: string | null) => {

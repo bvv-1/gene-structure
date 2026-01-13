@@ -4,12 +4,12 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
-import type { DrawSettings } from "./drawSettings";
-import type { GeneStructureInfo } from "./geneStructureInfo";
-import type { GeneStructureRequestDomainsItem } from "./geneStructureRequestDomainsItem";
-import type { GeneStructureRequestProteinDomainEnd } from "./geneStructureRequestProteinDomainEnd";
-import type { GeneStructureRequestProteinDomainName } from "./geneStructureRequestProteinDomainName";
-import type { GeneStructureRequestProteinDomainStart } from "./geneStructureRequestProteinDomainStart";
+import type { DrawSettings } from './drawSettings';
+import type { GeneStructureInfo } from './geneStructureInfo';
+import type { GeneStructureRequestDomainsItem } from './geneStructureRequestDomainsItem';
+import type { GeneStructureRequestProteinDomainStart } from './geneStructureRequestProteinDomainStart';
+import type { GeneStructureRequestProteinDomainEnd } from './geneStructureRequestProteinDomainEnd';
+import type { GeneStructureRequestProteinDomainName } from './geneStructureRequestProteinDomainName';
 
 export interface GeneStructureRequest {
   draw_settings: DrawSettings;
