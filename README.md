@@ -68,29 +68,34 @@ API ドキュメントは [http://127.0.0.1:8000/api/py/docs](http://127.0.0.1:8
 FastAPIサーバーを起動後、以下のようにAPIを使用できます：
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/py/draw-gene" \
+curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg" \
   -H "Content-Type: application/json" \
   -d '{
-    "transcript_id": "Os06t0160700-01",
-    "gff_file_path": "./geneSTRUCTURE_v2/gff3/IRGSP-1.0_representative/transcripts.gff",
-    "deletion_regions": [],
-    "domains": [],
-    "protein_domain_start": 1,
-    "protein_domain_end": 120,
-    "protein_domain_name": "domain1"
+    "gene_structure": {
+      "transcript_id": "Os06t0160700-01",
+      "seq_id": "chr06",
+      "strand": "+",
+      "exons": [{"start": 100, "end": 200}],
+      "cds": [{"start": 120, "end": 180}],
+      "five_prime_utrs": [],
+      "three_prime_utrs": []
+    }
   }' \
   -o output.svg
 ```
 
 #### APIパラメータ
 
-- `transcript_id` (required): トランスクリプトID
-- `gff_file_path` (optional): GFF3ファイルのパス（デフォルト: `./gff3/IRGSP-1.0_representative/transcripts.gff`）
-- `deletion_regions` (optional): 削除領域のリスト `[[start, end], ...]`
+- `gene_structure` (required): 遺伝子構造情報オブジェクト
+  - `transcript_id`: トランスクリプトID
+  - `seq_id`: シーケンスID
+  - `strand`: ストランド方向（`+` または `-`）
+  - `exons`: エクソンのリスト `[{"start": number, "end": number}, ...]`
+  - `cds`: CDSのリスト `[{"start": number, "end": number}, ...]`
+  - `five_prime_utrs`: 5' UTRのリスト
+  - `three_prime_utrs`: 3' UTRのリスト
 - `domains` (optional): ドメイン領域のリスト `[{"start": 200, "end": 500, "name": "Kinase", "color": "red"}, ...]`
-- `protein_domain_start` (optional): プロテインドメインの開始位置（アミノ酸座標）
-- `protein_domain_end` (optional): プロテインドメインの終了位置（アミノ酸座標）
-- `protein_domain_name` (optional): プロテインドメインの名前
+- `deletion_regions` (optional): 削除領域のリスト `[[start, end], ...]`
 
 ### CLI ツール
 
@@ -121,13 +126,23 @@ domains = [
 .
 ├── app/                      # フロントエンド (Next.js)
 │   ├── components/          # 共通コンポーネント
+│   │   ├── Layout.tsx       # レイアウトコンポーネント
+│   │   └── SvgViewer.tsx    # SVGビューアー（react-svg-pan-zoom）
+│   ├── utils/               # ユーティリティ
+│   │   ├── gff.ts           # GFF3パーサー
+│   │   └── gff.test.ts      # GFFパーサーのテスト
+│   ├── api/                 # Next.js APIルート
+│   │   ├── list-gffs/       # GFFファイル一覧取得
+│   │   └── upload-gff/      # GFFファイルアップロード
 │   ├── docs/                # ドキュメントページ
 │   ├── faq/                 # FAQページ
 │   ├── page.tsx             # メインページ
-│   └── layout.tsx           # レイアウトコンポーネント
+│   └── layout.tsx           # ルートレイアウト
 ├── api/                      # バックエンド (FastAPI)
 │   ├── index.py             # FastAPI エンドポイント
-│   └── original.py          # CLIツール
+│   ├── models.py            # データモデル（GeneFeature、GeneStructure等）
+│   ├── drawer.py            # SVG描画ロジック
+│   └── parser.py            # パーサー
 ├── geneSTRUCTURE_v2/        # GFF3データ
 │   └── gff3/
 │       └── IRGSP-1.0_representative/
@@ -135,6 +150,7 @@ domains = [
 ├── requirements.txt         # Python依存関係
 ├── package.json             # Node.js依存関係
 ├── tsconfig.json            # TypeScript設定
+├── biome.json               # Biome設定（フォーマッター/リンター）
 ├── next.config.js           # Next.js設定
 └── README.md                # プロジェクト説明
 ```
@@ -142,16 +158,24 @@ domains = [
 ## 技術スタック
 
 ### フロントエンド
-- Next.js 14
-- React 18
+- Next.js 16
+- React 19
 - TypeScript
-- Tailwind CSS
+- Mantine v8（UIコンポーネント）
+- react-svg-pan-zoom（SVGビューアー）
+- gff-nostream（GFF3パーサー）
 
 ### バックエンド
 - FastAPI
 - Python 3.12
-- svgwrite (SVG生成)
-- reportlab (PDF生成)
+- svgwrite（SVG生成）
+- reportlab（PDF生成）
+- Pydantic（データバリデーション）
+
+### 開発ツール
+- Biome（フォーマッター/リンター）
+- Vitest（テスト）
+- mise（Node.jsバージョン管理）
 
 ## ライセンス
 
