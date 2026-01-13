@@ -35,6 +35,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import SvgViewer from "./components/SvgViewer";
+import { apiClient, type components } from "./lib/api";
 import {
   type GeneStructureInfo,
   getGeneStructureInfo,
@@ -44,26 +45,7 @@ import {
 
 type UIState = "upload" | "preview";
 
-type DrawSettings = {
-  mode: "domain" | "gene";
-  utr_color: string;
-  exon_color: string;
-  line_color: string;
-  intron_shape: "straight" | "zigzag";
-  gene_height?: number;
-  margin_x?: number;
-  margin_y?: number;
-};
-
-type GeneStructureRequest = {
-  draw_settings: DrawSettings;
-  gene_structure: GeneStructureInfo;
-  deletion_regions?: number[][];
-  domains?: { start: number; end: number; name: string }[];
-  protein_domain_start?: number;
-  protein_domain_end?: number;
-  protein_domain_name?: string;
-};
+type GeneStructureRequest = components["schemas"]["GeneStructureRequest"];
 
 type ExportSettings = {
   format: "svg" | "png";
@@ -72,66 +54,41 @@ type ExportSettings = {
   filename: string;
 };
 
-const postFetcher = async (url: string, data: GeneStructureRequest | null) => {
+const postFetcher = async (data: GeneStructureRequest | null) => {
   if (!data) {
     throw new Error("No data provided");
   }
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+  const {
+    data: blob,
+    error,
+    response,
+  } = await apiClient.POST("/api/py/generate-gene-structure-svg", {
+    body: data,
+    parseAs: "blob",
   });
 
-  if (!response.ok) {
-    // 422エラー（バリデーションエラー）の場合、詳細を取得
+  if (error) {
     if (response.status === 422) {
-      try {
-        const errorData = await response.json();
-        // Pydanticのバリデーションエラーをパース
-        if (errorData.detail && Array.isArray(errorData.detail)) {
-          const errorMessages = errorData.detail
-            .map((err: { loc?: string[]; msg: string }) => {
-              const field = err.loc?.join(".") || "unknown";
-              return `${field}: ${err.msg}`;
-            })
-            .join("\n");
+      const errorData = error as components["schemas"]["HTTPValidationError"];
+      if (errorData.detail && Array.isArray(errorData.detail)) {
+        const errorMessages = errorData.detail
+          .map((err) => {
+            const field = err.loc?.join(".") || "unknown";
+            return `${field}: ${err.msg}`;
+          })
+          .join("\n");
 
-          notifications.show({
-            title: "Validation Error",
-            message: errorMessages,
-            color: "red",
-            autoClose: 10000,
-          });
-          throw new Error("Validation error");
-        }
-
-        if (errorData.detail) {
-          notifications.show({
-            title: "Validation Error",
-            message: errorData.detail,
-            color: "red",
-            autoClose: 10000,
-          });
-          throw new Error("Validation error");
-        }
-      } catch (e) {
-        // JSONパースに失敗した場合
-        if (!(e instanceof Error && e.message === "Validation error")) {
-          notifications.show({
-            title: "Error",
-            message: `API error: ${response.status}`,
-            color: "red",
-            autoClose: 5000,
-          });
-        }
-        throw e;
+        notifications.show({
+          title: "Validation Error",
+          message: errorMessages,
+          color: "red",
+          autoClose: 10000,
+        });
+        throw new Error("Validation error");
       }
     }
 
-    // その他のエラー
     notifications.show({
       title: "Error",
       message: `API error: ${response.status}`,
@@ -141,7 +98,9 @@ const postFetcher = async (url: string, data: GeneStructureRequest | null) => {
     throw new Error(`API error: ${response.status}`);
   }
 
-  const blob = await response.blob();
+  if (!blob) {
+    throw new Error("No blob received from API");
+  }
   return { blob, url: window.URL.createObjectURL(blob) };
 };
 
@@ -345,7 +304,10 @@ export default function Home() {
         line_color: lineColor,
         intron_shape: "straight",
       },
-      gene_structure: selectedGeneStructure,
+      gene_structure:
+        selectedGeneStructure as components["schemas"]["GeneStructureInfo"],
+      deletion_regions: [],
+      domains: [],
     };
 
     // Add deletion regions if any (filter out invalid regions)
@@ -376,11 +338,9 @@ export default function Home() {
   const { data: svgData, mutate: mutateSVG } = useSWR(
     () => {
       const requestData = getRequestData();
-      return requestData
-        ? ["/api/py/generate-gene-structure-svg", requestData]
-        : null;
+      return requestData ? ["generate-gene-structure-svg", requestData] : null;
     },
-    ([url, data]) => postFetcher(url, data),
+    ([_key, data]) => postFetcher(data),
     {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
