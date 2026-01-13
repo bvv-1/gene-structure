@@ -35,7 +35,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import SvgViewer from "./components/SvgViewer";
-import { apiClient, type components } from "./lib/api";
+import {
+  type GeneStructureInfo as ApiGeneStructureInfo,
+  type GeneStructureRequest,
+  type GenerateSvgBlobError,
+  type HTTPValidationError,
+  generateGeneStructureSvgBlob,
+} from "./lib/api";
 import {
   type GeneStructureInfo,
   getGeneStructureInfo,
@@ -44,8 +50,6 @@ import {
 } from "./utils/gff";
 
 type UIState = "upload" | "preview";
-
-type GeneStructureRequest = components["schemas"]["GeneStructureRequest"];
 
 type ExportSettings = {
   format: "svg" | "png";
@@ -59,18 +63,14 @@ const postFetcher = async (data: GeneStructureRequest | null) => {
     throw new Error("No data provided");
   }
 
-  const {
-    data: blob,
-    error,
-    response,
-  } = await apiClient.POST("/api/py/generate-gene-structure-svg", {
-    body: data,
-    parseAs: "blob",
-  });
+  try {
+    const result = await generateGeneStructureSvgBlob(data);
+    return { blob: result.blob, url: window.URL.createObjectURL(result.blob) };
+  } catch (error) {
+    const apiError = error as GenerateSvgBlobError;
 
-  if (error) {
-    if (response.status === 422) {
-      const errorData = error as components["schemas"]["HTTPValidationError"];
+    if (apiError.status === 422) {
+      const errorData = apiError.data as HTTPValidationError;
       if (errorData.detail && Array.isArray(errorData.detail)) {
         const errorMessages = errorData.detail
           .map((err) => {
@@ -91,17 +91,12 @@ const postFetcher = async (data: GeneStructureRequest | null) => {
 
     notifications.show({
       title: "Error",
-      message: `API error: ${response.status}`,
+      message: `API error: ${apiError.status}`,
       color: "red",
       autoClose: 5000,
     });
-    throw new Error(`API error: ${response.status}`);
+    throw new Error(`API error: ${apiError.status}`);
   }
-
-  if (!blob) {
-    throw new Error("No blob received from API");
-  }
-  return { blob, url: window.URL.createObjectURL(blob) };
 };
 
 export default function Home() {
@@ -304,8 +299,7 @@ export default function Home() {
         line_color: lineColor,
         intron_shape: "straight",
       },
-      gene_structure:
-        selectedGeneStructure as components["schemas"]["GeneStructureInfo"],
+      gene_structure: selectedGeneStructure as ApiGeneStructureInfo,
       deletion_regions: [],
       domains: [],
     };
