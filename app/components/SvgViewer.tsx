@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ReactSVGPanZoom,
   TOOL_NONE,
+  INITIAL_VALUE,
   type Tool,
   type Value,
 } from "react-svg-pan-zoom";
@@ -20,7 +21,7 @@ export default function SvgViewer({
   height = 600,
 }: SvgViewerProps) {
   const [tool, setTool] = useState<Tool>(TOOL_NONE);
-  const [value, setValue] = useState<Value | null>(null);
+  const [value, setValue] = useState<Value>(INITIAL_VALUE);
   const [svgContent, setSvgContent] = useState<string>("");
   const viewerRef = useRef<ReactSVGPanZoom>(null);
 

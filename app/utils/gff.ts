@@ -66,9 +66,11 @@ export function getmRNAs(gff: GFF3Feature[]): GFF3Feature {
         if (current.type?.toLowerCase() === "mrna") {
           mRNAs.push(current);
         }
-        for (const child_features of current.child_features) {
-          for (const child of child_features) {
-            stack.push(child);
+        if (current.child_features) {
+          for (const child_features of current.child_features) {
+            for (const child of child_features) {
+              stack.push(child);
+            }
           }
         }
       }
@@ -84,6 +86,9 @@ export function getGeneStructureInfo(mRNAs: GFF3Feature): GeneStructureInfo[] {
     const exons: Position[] = [];
     const five_prime_utrs: Position[] = [];
     const three_prime_utrs: Position[] = [];
+    if (!mRNA.child_features) {
+      continue;
+    }
     for (const features of mRNA.child_features) {
       for (const feature of features) {
         const feature_type = feature.type?.toLowerCase();
