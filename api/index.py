@@ -6,8 +6,10 @@ from .models import (
     GeneFeature,
     GeneStructure,
     GeneStructureRequest,
+    MultiGeneStructureRequest,
 )
-from .drawer import draw_gene_structure, DEFAULT_COLORS
+from .drawer import draw_gene_structure, draw_multiple_gene_structures, DEFAULT_COLORS
+from .utils import build_gene_structure
 
 
 ### Create FastAPI instance with custom docs and openapi url
@@ -154,6 +156,58 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
         draw_settings = request.draw_settings
         svg_content = draw_gene_structure(
             gene,
+            utr_color=draw_settings.utr_color,
+            exon_color=draw_settings.exon_color,
+            line_color=draw_settings.line_color,
+            domain_color=DEFAULT_COLORS['domain_color']
+        )
+
+        return Response(content=svg_content, media_type="image/svg+xml")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/py/generate-multi-gene-structure-svg")
+async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
+    """
+    複数の遺伝子構造を1つのSVGに縦並びで描画するエンドポイント
+    """
+    try:
+        genes = []
+        labels = []
+
+        for gene_info in request.gene_structures:
+            # 共通関数でGeneStructureを構築
+            gene = build_gene_structure(gene_info)
+
+            # プロテインドメインを追加（最初の遺伝子のみに適用、オプション）
+            if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
+                gene.add_domain_from_protein_coords(
+                    request.protein_domain_start,
+                    request.protein_domain_end,
+                    request.protein_domain_name
+                )
+
+            # ドメインを追加
+            if request.domains:
+                gene.add_domains(request.domains)
+
+            # デリーション処理
+            if request.deletion_regions:
+                deletion_regions_as_tuples = [tuple(r) for r in request.deletion_regions]
+                gene.update_features_with_deletions(deletion_regions_as_tuples)
+
+            genes.append(gene)
+            labels.append(gene_info.transcript_id)
+
+        # SVGを生成
+        draw_settings = request.draw_settings
+        svg_content = draw_multiple_gene_structures(
+            genes=genes,
+            labels=labels,
+            show_labels=request.show_labels,
+            gene_spacing=request.gene_spacing,
             utr_color=draw_settings.utr_color,
             exon_color=draw_settings.exon_color,
             line_color=draw_settings.line_color,
