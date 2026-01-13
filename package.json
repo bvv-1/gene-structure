@@ -13,7 +13,7 @@
     "fmt": "biome check --write ./app",
     "ts": "tsc --noEmit",
     "generate:api": "orval",
-    "fetch:openapi": "curl -s http://127.0.0.1:8000/api/py/openapi.json > openapi.json"
+    "fetch:openapi": "python3 scripts/export_openapi.py"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
