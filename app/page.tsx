@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  Autocomplete,
-  Badge,
   Button,
   Card,
   Code,
@@ -12,12 +10,12 @@ import {
   Group,
   Modal,
   NumberInput,
-  Paper,
   Select,
+  Slider,
   Stack,
+  Switch,
   Text,
   TextInput,
-  ThemeIcon,
   Title,
 } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
@@ -30,10 +28,10 @@ import {
   IconRefresh,
   IconX,
 } from "@tabler/icons-react";
-import Fuse from "fuse.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { GeneSelector } from "./components/GeneSelector";
 import SvgViewer from "./components/SvgViewer";
 import {
   type GeneStructureInfo as ApiGeneStructureInfo,
@@ -51,11 +49,76 @@ import {
 
 type UIState = "upload" | "preview";
 
+type MultiGeneStructureRequest = {
+  draw_settings: {
+    mode: string;
+    utr_color: string;
+    exon_color: string;
+    line_color: string;
+    intron_shape: string;
+  };
+  gene_structures: ApiGeneStructureInfo[];
+  show_labels: boolean;
+  gene_spacing: number;
+  deletion_regions?: number[][];
+  domains?: { start: number; end: number; name: string }[];
+  protein_domain_start?: number;
+  protein_domain_end?: number;
+  protein_domain_name?: string;
+};
+
 type ExportSettings = {
   format: "svg" | "png";
   dpi: number;
   background: "transparent" | "white";
   filename: string;
+};
+
+const postMultiFetcher = async (data: MultiGeneStructureRequest | null) => {
+  if (!data) {
+    throw new Error("No data provided");
+  }
+
+  const response = await fetch("/api/py/generate-multi-gene-structure-svg", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 422) {
+      const errorData = await response.json();
+      if (errorData.detail && Array.isArray(errorData.detail)) {
+        const errorMessages = errorData.detail
+          .map((err: { loc?: string[]; msg: string }) => {
+            const field = err.loc?.join(".") || "unknown";
+            return `${field}: ${err.msg}`;
+          })
+          .join("\n");
+
+        notifications.show({
+          title: "Validation Error",
+          message: errorMessages,
+          color: "red",
+          autoClose: 10000,
+        });
+        throw new Error("Validation error");
+      }
+    }
+
+    notifications.show({
+      title: "Error",
+      message: `API error: ${response.status}`,
+      color: "red",
+      autoClose: 5000,
+    });
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return { blob, url: window.URL.createObjectURL(blob) };
 };
 
 const postFetcher = async (data: GeneStructureRequest | null) => {
@@ -102,7 +165,6 @@ const postFetcher = async (data: GeneStructureRequest | null) => {
 export default function Home() {
   const [uiState, setUiState] = useState<UIState>("upload");
   const [isLoading, setIsLoading] = useState(false);
-  const [input, setInput] = useState("");
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [utrColor, setUtrColor] = useState("#d3d3d3");
   const [exonColor, setExonColor] = useState("#000000");
@@ -114,7 +176,6 @@ export default function Home() {
   const [presetGffOptions, setPresetGffOptions] = useState<
     Array<{ group: string; items: Array<{ value: string; label: string }> }>
   >([]);
-  const [width, setWidth] = useState(1200);
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +186,10 @@ export default function Home() {
     background: "white",
     filename: "gene_structure",
   });
+
+  // Multi-gene settings
+  const [showLabels, setShowLabels] = useState(true);
+  const [geneSpacing, setGeneSpacing] = useState(50);
 
   // Deletion and domain settings
   const [deletionRegions, setDeletionRegions] = useState<
@@ -216,31 +281,6 @@ export default function Home() {
     }
   };
 
-  const fuseInstance = useMemo(() => {
-    const fuse = new Fuse(geneStructures, {
-      keys: ["transcript_id", "attributes.Parent"],
-      threshold: 0.5,
-    });
-    return fuse;
-  }, [geneStructures]);
-
-  const autocompleteData = useMemo(() => {
-    if (!input) {
-      return geneStructures
-        .filter((gs) => !selectedTranscripts.includes(gs.transcript_id))
-        .slice(0, 20)
-        .map((gs) => gs.transcript_id);
-    }
-
-    const searchResults = fuseInstance.search(input);
-    return searchResults
-      .filter(
-        (result) => !selectedTranscripts.includes(result.item.transcript_id),
-      )
-      .slice(0, 20)
-      .map((result) => result.item.transcript_id);
-  }, [geneStructures, selectedTranscripts, input, fuseInstance]);
-
   // ファイル処理関数（アップロード→解析）
   const handleFileProcess = async () => {
     if (!selectedFile) {
@@ -267,7 +307,7 @@ export default function Home() {
 
       // 処理完了後、UI状態を生成画面に変更
       setUiState("preview");
-      await handleGenerateSVG(geneStructures[0]);
+      await handleGenerateSVG();
     } catch (error) {
       console.error("Error processing file:", error);
       notifications.show({
@@ -281,17 +321,18 @@ export default function Home() {
     }
   };
 
-  const getRequestData = (): GeneStructureRequest | null => {
+  const getMultiRequestData = (): MultiGeneStructureRequest | null => {
     if (geneStructures.length === 0) return null;
     if (selectedTranscripts.length === 0) return null;
 
-    const selectedGeneStructure = geneStructures.find((gs) =>
-      selectedTranscripts.includes(gs.transcript_id),
-    );
+    // 選択順序を維持して遺伝子構造を取得
+    const selectedGeneStructures = selectedTranscripts
+      .map((id) => geneStructures.find((gs) => gs.transcript_id === id))
+      .filter((gs): gs is GeneStructureInfo => gs !== undefined);
 
-    if (!selectedGeneStructure) return null;
+    if (selectedGeneStructures.length === 0) return null;
 
-    const requestData: GeneStructureRequest = {
+    const requestData: MultiGeneStructureRequest = {
       draw_settings: {
         mode: "domain",
         utr_color: utrColor,
@@ -299,7 +340,9 @@ export default function Home() {
         line_color: lineColor,
         intron_shape: "straight",
       },
-      gene_structure: selectedGeneStructure as ApiGeneStructureInfo,
+      gene_structures: selectedGeneStructures as ApiGeneStructureInfo[],
+      show_labels: showLabels,
+      gene_spacing: geneSpacing,
       deletion_regions: [],
       domains: [],
     };
@@ -331,10 +374,12 @@ export default function Home() {
 
   const { data: svgData, mutate: mutateSVG } = useSWR(
     () => {
-      const requestData = getRequestData();
-      return requestData ? ["generate-gene-structure-svg", requestData] : null;
+      const requestData = getMultiRequestData();
+      return requestData
+        ? ["generate-multi-gene-structure-svg", requestData]
+        : null;
     },
-    ([_key, data]) => postFetcher(data),
+    ([_key, data]) => postMultiFetcher(data),
     {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
@@ -342,11 +387,11 @@ export default function Home() {
     },
   );
 
-  const handleGenerateSVG = async (structure: GeneStructureInfo | null) => {
-    if (!structure) {
+  const handleGenerateSVG = async () => {
+    if (selectedTranscripts.length === 0) {
       notifications.show({
         title: "Error",
-        message: "Please process the file first",
+        message: "Please select at least one gene",
         color: "red",
         autoClose: 5000,
       });
@@ -569,70 +614,16 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
               <Grid.Col span={6}>
                 <Card shadow="xl" padding="lg" radius="md" mb={32} h="100%">
                   <Title order={3} mb="md">
-                    Search Genes/Transcripts
+                    Select Genes/Transcripts
                   </Title>
 
-                  <Stack>
-                    <Autocomplete
-                      label=""
-                      placeholder="Select gene ID/transcript ID"
-                      disabled={!geneStructures.length}
-                      value={input}
-                      onChange={setInput}
-                      data={autocompleteData}
-                      onOptionSubmit={(value) => {
-                        if (!selectedTranscripts.includes(value)) {
-                          setSelectedTranscripts([
-                            ...selectedTranscripts,
-                            value,
-                          ]);
-                          setInput("");
-                        }
-                      }}
-                    />
-
-                    {selectedTranscripts.length > 0 && (
-                      <>
-                        <Text size="sm" fw={500}>
-                          Selected Transcripts:
-                        </Text>
-                        <Stack gap="xs">
-                          {selectedTranscripts.map((transcript) => (
-                            <Badge
-                              key={transcript}
-                              size="lg"
-                              style={{ textTransform: "none" }}
-                              rightSection={
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedTranscripts(
-                                      selectedTranscripts.filter(
-                                        (t) => t !== transcript,
-                                      ),
-                                    );
-                                  }}
-                                  style={{
-                                    border: "none",
-                                    background: "transparent",
-                                    cursor: "pointer",
-                                    padding: 0,
-                                    marginLeft: 4,
-                                    color: "white",
-                                    fontSize: 20,
-                                  }}
-                                >
-                                  ×
-                                </button>
-                              }
-                            >
-                              {transcript}
-                            </Badge>
-                          ))}
-                        </Stack>
-                      </>
-                    )}
-                  </Stack>
+                  <GeneSelector
+                    geneStructures={geneStructures}
+                    selectedTranscripts={selectedTranscripts}
+                    onSelectionChange={setSelectedTranscripts}
+                    maxSelection={30}
+                    disabled={!geneStructures.length || isLoading}
+                  />
                 </Card>
               </Grid.Col>
             </Grid>
@@ -673,7 +664,7 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                   </Title>
                   <Stack gap="md">
                     <Button
-                      onClick={() => handleGenerateSVG(geneStructures[0])}
+                      onClick={() => handleGenerateSVG()}
                       disabled={isLoading}
                       loading={isLoading}
                       leftSection={<IconPlayerPlay size={16} />}
@@ -704,12 +695,44 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
 
                 <Card shadow="xl" padding="lg" radius="md">
                   <Title order={3} mb="md">
-                    Basic Settings
+                    Multi-Gene Settings
+                  </Title>
+                  <Stack gap="md">
+                    <Switch
+                      label="Show gene labels"
+                      checked={showLabels}
+                      onChange={(event) =>
+                        setShowLabels(event.currentTarget.checked)
+                      }
+                    />
+                    <Stack gap="xs">
+                      <Text size="sm" fw={500}>
+                        Gene spacing: {geneSpacing}px
+                      </Text>
+                      <Slider
+                        value={geneSpacing}
+                        onChange={setGeneSpacing}
+                        min={10}
+                        max={200}
+                        step={5}
+                        marks={[
+                          { value: 10, label: "10" },
+                          { value: 100, label: "100" },
+                          { value: 200, label: "200" },
+                        ]}
+                      />
+                    </Stack>
+                    <Text size="xs" c="dimmed">
+                      Selected: {selectedTranscripts.length} gene(s)
+                    </Text>
+                  </Stack>
+                </Card>
+
+                <Card shadow="xl" padding="lg" radius="md">
+                  <Title order={3} mb="md">
+                    Color Settings
                   </Title>
                   <Stack>
-                    <Text size="sm" fw={500}>
-                      Color Settings:
-                    </Text>
                     <Grid>
                       <Grid.Col span={4}>
                         <ColorInput

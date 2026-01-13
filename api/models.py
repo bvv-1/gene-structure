@@ -304,3 +304,117 @@ class GeneStructureRequest(BaseModel):
             if start >= end:
                 raise ValueError(f"Domain {i}: start ({start}) must be less than end ({end})")
         return v
+
+
+class MultiGeneStructureRequest(BaseModel):
+    """複数遺伝子のSVG生成リクエスト"""
+    draw_settings: DrawSettings
+    gene_structures: List[GeneStructureInfo]
+    show_labels: bool = True
+    gene_spacing: int = 50  # 遺伝子間の余白（ピクセル）
+    deletion_regions: List[List[int]] = []
+    domains: List[Dict] = []
+    protein_domain_start: Optional[int] = None
+    protein_domain_end: Optional[int] = None
+    protein_domain_name: Optional[str] = None
+
+    @field_validator('gene_structures')
+    @classmethod
+    def validate_gene_structures(cls, v):
+        """gene_structuresのバリデーション"""
+        if len(v) == 0:
+            raise ValueError("At least one gene structure is required")
+        if len(v) > 30:
+            raise ValueError("Maximum 30 gene structures allowed")
+        return v
+
+    @field_validator('gene_spacing')
+    @classmethod
+    def validate_gene_spacing(cls, v):
+        """gene_spacingのバリデーション"""
+        if v < 0:
+            raise ValueError("gene_spacing must be non-negative")
+        if v > 500:
+            raise ValueError("gene_spacing must be 500 or less")
+        return v
+
+    @field_validator('deletion_regions')
+    @classmethod
+    def validate_deletion_regions(cls, v):
+        """deletion_regionsのバリデーション"""
+        for i, region in enumerate(v):
+            if len(region) != 2:
+                raise ValueError(f"Deletion region {i} must have exactly 2 elements [start, end]")
+            start, end = region
+            if start <= 0 or end <= 0:
+                raise ValueError(f"Deletion region {i}: coordinates must be positive integers (got start={start}, end={end})")
+            if start >= end:
+                raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
+        return v
+
+    @field_validator('protein_domain_start')
+    @classmethod
+    def validate_protein_domain_start(cls, v):
+        """protein_domain_startのバリデーション"""
+        if v is not None and v <= 0:
+            raise ValueError(f"protein_domain_start must be a positive integer (got {v})")
+        return v
+
+    @field_validator('protein_domain_end')
+    @classmethod
+    def validate_protein_domain_end(cls, v):
+        """protein_domain_endのバリデーション"""
+        if v is not None and v <= 0:
+            raise ValueError(f"protein_domain_end must be a positive integer (got {v})")
+        return v
+
+    @model_validator(mode='after')
+    def validate_protein_domain(self):
+        """protein domainの整合性チェック"""
+        start = self.protein_domain_start
+        end = self.protein_domain_end
+        name = self.protein_domain_name
+
+        # 3つのうち1つでも設定されている場合、すべてが必要
+        if any([start, end, name]):
+            if not all([start, end, name]):
+                raise ValueError(
+                    "protein_domain_start, protein_domain_end, and protein_domain_name must all be provided together"
+                )
+            if start >= end:
+                raise ValueError(
+                    f"protein_domain_start ({start}) must be less than protein_domain_end ({end})"
+                )
+        return self
+
+    @field_validator('domains')
+    @classmethod
+    def validate_domains(cls, v):
+        """domainsのバリデーション"""
+        for i, domain in enumerate(v):
+            # 必須フィールドのチェック
+            if 'start' not in domain:
+                raise ValueError(f"Domain {i}: 'start' field is required")
+            if 'end' not in domain:
+                raise ValueError(f"Domain {i}: 'end' field is required")
+            if 'name' not in domain:
+                raise ValueError(f"Domain {i}: 'name' field is required")
+
+            start = domain['start']
+            end = domain['end']
+            name = domain['name']
+
+            # 型チェック
+            if not isinstance(start, int):
+                raise ValueError(f"Domain {i}: 'start' must be an integer (got {type(start).__name__})")
+            if not isinstance(end, int):
+                raise ValueError(f"Domain {i}: 'end' must be an integer (got {type(end).__name__})")
+            if not isinstance(name, str):
+                raise ValueError(f"Domain {i}: 'name' must be a string (got {type(name).__name__})")
+
+            # 範囲チェック
+            if start <= 0 or end <= 0:
+                raise ValueError(f"Domain {i}: coordinates must be positive integers (got start={start}, end={end})")
+            if start >= end:
+                raise ValueError(f"Domain {i}: start ({start}) must be less than end ({end})")
+        return v
