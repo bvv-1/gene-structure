@@ -20,7 +20,7 @@ export default function SvgViewer({
   height = 600,
 }: SvgViewerProps) {
   const [tool, setTool] = useState<Tool>(TOOL_NONE);
-  const [value, setValue] = useState<Value | null>(null);
+  const [value, setValue] = useState<Value>({} as Value);
   const [svgContent, setSvgContent] = useState<string>("");
   const viewerRef = useRef<ReactSVGPanZoom>(null);
 

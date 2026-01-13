@@ -20,8 +20,8 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import { Dropzone } from "@mantine/dropzone";
+import { notifications } from "@mantine/notifications";
 import {
   IconArrowRight,
   IconCloudUpload,
@@ -154,9 +154,11 @@ export default function Home() {
   const [exonColor, setExonColor] = useState("#000000");
   const [lineColor, setLineColor] = useState("#000000");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedPresetGff, setSelectedPresetGff] = useState<string | null>(null);
+  const [selectedPresetGff, setSelectedPresetGff] = useState<string | null>(
+    null,
+  );
   const [presetGffOptions, setPresetGffOptions] = useState<
-    Array<{ value: string; label: string; group: string }>
+    Array<{ group: string; items: Array<{ value: string; label: string }> }>
   >([]);
   const [width, setWidth] = useState(1200);
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
@@ -189,7 +191,29 @@ export default function Home() {
         const response = await fetch("/api/list-gffs");
         const data = await response.json();
         if (data.files) {
-          setPresetGffOptions(data.files);
+          // Convert flat array with group property to grouped format for Mantine v8
+          const groupedData: Array<{
+            group: string;
+            items: Array<{ value: string; label: string }>;
+          }> = [];
+          const groupMap = new Map<
+            string,
+            Array<{ value: string; label: string }>
+          >();
+
+          for (const file of data.files) {
+            const group = file.group || "Other";
+            if (!groupMap.has(group)) {
+              groupMap.set(group, []);
+            }
+            groupMap.get(group)?.push({ value: file.value, label: file.label });
+          }
+
+          for (const [group, items] of groupMap) {
+            groupedData.push({ group, items });
+          }
+
+          setPresetGffOptions(groupedData);
         }
       } catch (error) {
         console.error("Error loading preset GFF files:", error);
