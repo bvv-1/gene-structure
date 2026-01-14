@@ -439,6 +439,7 @@ def draw_region_gene_structures(
 ) -> str:
     """
     共通座標軸上に複数の遺伝子構造を描画する
+    座標が重複しない遺伝子は同じトラック（行）に横並びで配置
 
     Args:
         genes: 描画するGeneStructureのリスト
@@ -446,7 +447,7 @@ def draw_region_gene_structures(
         region_start: 表示領域の開始座標（ゲノム座標）
         region_end: 表示領域の終了座標（ゲノム座標）
         show_labels: ラベルを表示するかどうか
-        gene_spacing: 遺伝子間の余白（ピクセル）
+        gene_spacing: トラック間の余白（ピクセル）
         label_spacing: ラベルと遺伝子構造の余白（ピクセル）
         scale: スケール倍率
         shrink_factor: 座標の縮小係数
@@ -466,18 +467,57 @@ def draw_region_gene_structures(
 
     height_feature = 15
 
-    # ラベルの最大文字数に基づいて基本幅を計算
-    max_label_len = max(len(label) for label in labels) if labels else 0
-    label_base_width = int(max_label_len * 6.6) + 5
-    label_width = (label_base_width + label_spacing) if show_labels else 0
+    # 各遺伝子の座標範囲を計算
+    gene_ranges = []
+    for idx, gene in enumerate(genes):
+        features = gene.get_sorted_features()
+        if features:
+            gene_start = min(f.start for f in features)
+            gene_end = max(f.end for f in features)
+        else:
+            gene_start = 0
+            gene_end = 0
+        gene_ranges.append({
+            'idx': idx,
+            'gene': gene,
+            'label': labels[idx],
+            'start': gene_start,
+            'end': gene_end
+        })
+
+    # 開始座標でソート
+    gene_ranges.sort(key=lambda x: x['start'])
+
+    # トラック配置アルゴリズム（重複しない遺伝子は同じトラックに配置）
+    tracks = []  # 各トラックの終了座標を保持
+    gene_track_assignments = []  # 各遺伝子のトラック番号
+
+    for gene_info in gene_ranges:
+        gene_start = gene_info['start']
+        gene_end = gene_info['end']
+
+        # 配置可能なトラックを探す（余白を考慮）
+        track_found = False
+        min_gap = 500  # 遺伝子間の最小間隔（bp）
+
+        for track_idx, track_end in enumerate(tracks):
+            if gene_start > track_end + min_gap:
+                # このトラックに配置可能
+                tracks[track_idx] = gene_end
+                gene_track_assignments.append((gene_info, track_idx))
+                track_found = True
+                break
+
+        if not track_found:
+            # 新しいトラックを作成
+            tracks.append(gene_end)
+            gene_track_assignments.append((gene_info, len(tracks) - 1))
+
+    num_tracks = len(tracks)
 
     # 全遺伝子の座標範囲を計算（はみ出しを含む）
-    all_starts = []
-    all_ends = []
-    for gene in genes:
-        for feat in gene.get_sorted_features():
-            all_starts.append(feat.start)
-            all_ends.append(feat.end)
+    all_starts = [g['start'] for g in gene_ranges if g['start'] > 0]
+    all_ends = [g['end'] for g in gene_ranges if g['end'] > 0]
 
     # 描画範囲を決定（領域指定とはみ出しを考慮）
     if all_starts and all_ends:
@@ -492,12 +532,13 @@ def draw_region_gene_structures(
 
     # Canvas幅
     extra_padding = 100
-    canvas_width = LEFT_MARGIN + label_width + axis_width + extra_padding + 300
+    canvas_width = LEFT_MARGIN + axis_width + extra_padding + 300
 
-    # Canvas高さ
-    gene_height = height_feature + 10
+    # Canvas高さ（ラベルは遺伝子構造の下に表示するため、トラックごとに追加スペース）
+    label_height = 15 if show_labels else 0
+    track_height = height_feature + label_height + label_spacing
     top_margin = 50  # 座標軸用のスペース
-    canvas_height = top_margin + len(genes) * (gene_height + gene_spacing) + 150
+    canvas_height = top_margin + num_tracks * (track_height + gene_spacing) + 150
 
     # メモリ上にSVGを作成
     dwg = svgwrite.Drawing(size=(canvas_width, canvas_height))
@@ -505,8 +546,8 @@ def draw_region_gene_structures(
     # 座標軸を描画（上部）
     axis_y = top_margin - 20
     dwg.add(dwg.line(
-        start=(label_width + LEFT_MARGIN, axis_y),
-        end=(label_width + LEFT_MARGIN + axis_width, axis_y),
+        start=(LEFT_MARGIN, axis_y),
+        end=(LEFT_MARGIN + axis_width, axis_y),
         stroke='black',
         stroke_width=1
     ))
@@ -516,7 +557,7 @@ def draw_region_gene_structures(
     first_tick = ((draw_start // tick_interval) + 1) * tick_interval
 
     for tick_pos in range(first_tick, draw_end + 1, tick_interval):
-        x = label_width + LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
+        x = LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
 
         # 目盛り線
         dwg.add(dwg.line(
@@ -540,25 +581,24 @@ def draw_region_gene_structures(
         ))
 
     # 各遺伝子を描画
-    for idx, (gene, label) in enumerate(zip(genes, labels)):
+    for gene_info, track_idx in gene_track_assignments:
+        gene = gene_info['gene']
+        label = gene_info['label']
         all_features = gene.get_sorted_features()
-        y_pos = top_margin + idx * (gene_height + gene_spacing)
+        y_pos = top_margin + track_idx * (track_height + gene_spacing)
 
-        # ラベルを描画
-        if show_labels:
-            dwg.add(dwg.text(
-                label,
-                insert=(LEFT_MARGIN, y_pos + height_feature - 2),
-                font_size='11px',
-                fill='black',
-                font_family='monospace'
-            ))
+        # 遺伝子の中心X座標を計算（ラベル配置用）
+        gene_center_x = None
+        if all_features:
+            gene_start = min(f.start for f in all_features)
+            gene_end = max(f.end for f in all_features)
+            gene_center_x = LEFT_MARGIN + ((gene_start + gene_end) / 2 - draw_start) / shrink_factor * scale
 
         # フィーチャーを描画（ドメイン以外）
         for feat in all_features:
             # X座標 = 描画範囲の開始位置からのオフセット
-            x_start = label_width + LEFT_MARGIN + (feat.start - draw_start) / shrink_factor * scale
-            x_end = label_width + LEFT_MARGIN + (feat.end - draw_start) / shrink_factor * scale
+            x_start = LEFT_MARGIN + (feat.start - draw_start) / shrink_factor * scale
+            x_end = LEFT_MARGIN + (feat.end - draw_start) / shrink_factor * scale
             width = x_end - x_start
 
             if feat.feature_type == 'domain':
@@ -609,8 +649,8 @@ def draw_region_gene_structures(
         # ドメインを描画（上層）
         for feat in all_features:
             if feat.feature_type == 'domain':
-                x_start = label_width + LEFT_MARGIN + (feat.start - draw_start) / shrink_factor * scale
-                x_end = label_width + LEFT_MARGIN + (feat.end - draw_start) / shrink_factor * scale
+                x_start = LEFT_MARGIN + (feat.start - draw_start) / shrink_factor * scale
+                x_end = LEFT_MARGIN + (feat.end - draw_start) / shrink_factor * scale
                 width = x_end - x_start
 
                 dwg.add(
@@ -623,8 +663,19 @@ def draw_region_gene_structures(
                     )
                 )
 
+        # ラベルを遺伝子構造の下に描画（中央揃え）
+        if show_labels and gene_center_x is not None:
+            dwg.add(dwg.text(
+                label,
+                insert=(gene_center_x, y_pos + height_feature + label_spacing + 10),
+                font_size='10px',
+                fill='black',
+                font_family='monospace',
+                text_anchor='middle'
+            ))
+
     # === 凡例（右上に1つだけ配置） ===
-    legend_x = label_width + LEFT_MARGIN + axis_width + 50
+    legend_x = LEFT_MARGIN + axis_width + 50
     legend_y = 30
     box_size = 12
     spacing = 20
