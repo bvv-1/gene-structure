@@ -226,7 +226,9 @@ def draw_multiple_gene_structures(
 
     extra_padding = 100
     height_feature = 15
-    label_base_width = 200  # ラベル自体の基本幅
+    # ラベルの最大文字数に基づいて基本幅を計算（monospace 11px ≈ 6.6px/文字）
+    max_label_len = max(len(label) for label in labels) if labels else 0
+    label_base_width = int(max_label_len * 6.6) + 5  # 少し余裕を持たせる
     label_width = (label_base_width + label_spacing) if show_labels else 0  # ラベル用のスペース + 余白
 
     # 各遺伝子の最大X座標を計算
