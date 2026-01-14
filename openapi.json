@@ -416,6 +416,11 @@
             "title": "Gene Spacing",
             "default": 50
           },
+          "label_spacing": {
+            "type": "integer",
+            "title": "Label Spacing",
+            "default": 10
+          },
           "deletion_regions": {
             "items": {
               "items": {

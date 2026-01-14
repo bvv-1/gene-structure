@@ -191,6 +191,7 @@ def draw_multiple_gene_structures(
     labels: List[str],
     show_labels: bool = True,
     gene_spacing: int = 50,
+    label_spacing: int = 10,
     scale: float = 2,
     shrink_factor: float = 30.0,
     utr_color: str = None,
@@ -206,6 +207,7 @@ def draw_multiple_gene_structures(
         labels: 各遺伝子のラベル（transcript_id等）
         show_labels: ラベルを表示するかどうか
         gene_spacing: 遺伝子間の余白（ピクセル）
+        label_spacing: ラベルと遺伝子構造の余白（ピクセル）
         scale: スケール倍率
         shrink_factor: 座標の縮小係数
         utr_color: UTRの色
@@ -224,7 +226,10 @@ def draw_multiple_gene_structures(
 
     extra_padding = 100
     height_feature = 15
-    label_width = 200 if show_labels else 0  # ラベル用のスペース
+    # ラベルの最大文字数に基づいて基本幅を計算（monospace 11px ≈ 6.6px/文字）
+    max_label_len = max(len(label) for label in labels) if labels else 0
+    label_base_width = int(max_label_len * 6.6) + 5  # 少し余裕を持たせる
+    label_width = (label_base_width + label_spacing) if show_labels else 0  # ラベル用のスペース + 余白
 
     # 各遺伝子の最大X座標を計算
     max_x_coords = []

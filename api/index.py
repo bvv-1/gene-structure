@@ -208,6 +208,7 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
             labels=labels,
             show_labels=request.show_labels,
             gene_spacing=request.gene_spacing,
+            label_spacing=request.label_spacing,
             utr_color=draw_settings.utr_color,
             exon_color=draw_settings.exon_color,
             line_color=draw_settings.line_color,
