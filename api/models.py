@@ -312,6 +312,7 @@ class MultiGeneStructureRequest(BaseModel):
     gene_structures: List[GeneStructureInfo]
     show_labels: bool = True
     gene_spacing: int = 50  # 遺伝子間の余白（ピクセル）
+    label_spacing: int = 10  # ラベルと遺伝子構造の余白（ピクセル）
     deletion_regions: List[List[int]] = []
     domains: List[Dict] = []
     protein_domain_start: Optional[int] = None
@@ -336,6 +337,16 @@ class MultiGeneStructureRequest(BaseModel):
             raise ValueError("gene_spacing must be non-negative")
         if v > 500:
             raise ValueError("gene_spacing must be 500 or less")
+        return v
+
+    @field_validator('label_spacing')
+    @classmethod
+    def validate_label_spacing(cls, v):
+        """label_spacingのバリデーション"""
+        if v < 0:
+            raise ValueError("label_spacing must be non-negative")
+        if v > 200:
+            raise ValueError("label_spacing must be 200 or less")
         return v
 
     @field_validator('deletion_regions')

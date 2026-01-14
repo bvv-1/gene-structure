@@ -61,6 +61,7 @@ type MultiGeneStructureRequest = {
   gene_structures: ApiGeneStructureInfo[];
   show_labels: boolean;
   gene_spacing: number;
+  label_spacing: number;
   deletion_regions?: number[][];
   domains?: { start: number; end: number; name: string }[];
   protein_domain_start?: number;
@@ -189,6 +190,7 @@ export default function Home() {
   // Multi-gene settings
   const [showLabels, setShowLabels] = useState(true);
   const [geneSpacing, setGeneSpacing] = useState(50);
+  const [labelSpacing, setLabelSpacing] = useState(10);
 
   // Deletion and domain settings
   const [deletionRegions, setDeletionRegions] = useState<
@@ -304,6 +306,7 @@ export default function Home() {
       gene_structures: selectedGeneStructures as ApiGeneStructureInfo[],
       show_labels: showLabels,
       gene_spacing: geneSpacing,
+      label_spacing: labelSpacing,
       deletion_regions: [],
       domains: [],
     };
@@ -680,6 +683,23 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                           { value: 10, label: "10" },
                           { value: 100, label: "100" },
                           { value: 200, label: "200" },
+                        ]}
+                      />
+                    </Stack>
+                    <Stack gap="xs">
+                      <Text size="sm" fw={500}>
+                        Label spacing: {labelSpacing}px
+                      </Text>
+                      <Slider
+                        value={labelSpacing}
+                        onChange={setLabelSpacing}
+                        min={0}
+                        max={100}
+                        step={5}
+                        marks={[
+                          { value: 0, label: "0" },
+                          { value: 50, label: "50" },
+                          { value: 100, label: "100" },
                         ]}
                       />
                     </Stack>

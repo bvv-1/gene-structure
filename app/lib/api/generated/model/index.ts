@@ -29,3 +29,8 @@ export * from "./hTTPValidationError";
 export * from "./position";
 export * from "./validationError";
 export * from "./validationErrorLocItem";
+export * from './multiGeneStructureRequest';
+export * from './multiGeneStructureRequestDomainsItem';
+export * from './multiGeneStructureRequestProteinDomainEnd';
+export * from './multiGeneStructureRequestProteinDomainName';
+export * from './multiGeneStructureRequestProteinDomainStart';

@@ -17,7 +17,8 @@ import type {
 
 import type {
   GeneStructureRequest,
-  HTTPValidationError
+  HTTPValidationError,
+  MultiGeneStructureRequest
 } from '.././model';
 
 import { customFetch } from '../../custom-fetch';
@@ -66,6 +67,52 @@ export const useGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPost = <TEr
 
   const swrKey = swrOptions?.swrKey ?? getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationKey();
   const swrFn = getGenerateGeneStructureSvgApiPyGenerateGeneStructureSvgPostMutationFetcher(requestOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+/**
+ * 複数の遺伝子構造を1つのSVGに縦並びで描画するエンドポイント
+ * @summary Generate Multi Gene Structure Svg
+ */
+export const generateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost = (
+    multiGeneStructureRequest: MultiGeneStructureRequest,
+ options?: SecondParameter<typeof customFetch>) => {
+    return customFetch<unknown>(
+    {url: `/api/py/generate-multi-gene-structure-svg`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: multiGeneStructureRequest
+    },
+    options);
+  }
+
+
+
+export const getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationFetcher = ( options?: SecondParameter<typeof customFetch>) => {
+  return (_: Key, { arg }: { arg: MultiGeneStructureRequest }) => {
+    return generateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost(arg, options);
+  }
+}
+export const getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationKey = () => [`/api/py/generate-multi-gene-structure-svg`] as const;
+
+export type GenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationResult = NonNullable<Awaited<ReturnType<typeof generateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost>>>
+export type GenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationError = HTTPValidationError
+
+/**
+ * @summary Generate Multi Gene Structure Svg
+ */
+export const useGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost = <TError = HTTPValidationError>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof generateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost>>, TError, Key, MultiGeneStructureRequest, Awaited<ReturnType<typeof generateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPost>>> & { swrKey?: string }, request?: SecondParameter<typeof customFetch>}
+) => {
+
+  const {swr: swrOptions, request: requestOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationKey();
+  const swrFn = getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationFetcher(requestOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions)
 
