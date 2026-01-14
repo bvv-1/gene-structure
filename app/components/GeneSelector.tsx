@@ -154,8 +154,10 @@ export function GeneSelector({
       selectedTranscripts.length < maxSelection
     ) {
       onSelectionChange([...selectedTranscripts, value]);
-      setInput("");
     }
+    // MantineのAutocompleteは選択後に内部で値を設定するため、
+    // setTimeoutで処理完了後にクリアする
+    setTimeout(() => setInput(""), 0);
   };
 
   const handleRemove = (transcriptId: string) => {
