@@ -187,7 +187,7 @@ export default function Home() {
     filename: "gene_structure",
   });
 
-  // Multi-gene settings
+  // Display options
   const [showLabels, setShowLabels] = useState(true);
   const [geneSpacing, setGeneSpacing] = useState(50);
   const [labelSpacing, setLabelSpacing] = useState(10);
@@ -659,7 +659,7 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
 
                 <Card shadow="xl" padding="lg" radius="md">
                   <Title order={3} mb="md">
-                    Multi-Gene Settings
+                    Display Options
                   </Title>
                   <Stack gap="md">
                     <Switch
@@ -669,43 +669,44 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                         setShowLabels(event.currentTarget.checked)
                       }
                     />
-                    <Stack gap="xs">
-                      <Text size="sm" fw={500}>
-                        Gene spacing: {geneSpacing}px
-                      </Text>
-                      <Slider
-                        value={geneSpacing}
-                        onChange={setGeneSpacing}
-                        min={10}
-                        max={200}
-                        step={5}
-                        marks={[
-                          { value: 10, label: "10" },
-                          { value: 100, label: "100" },
-                          { value: 200, label: "200" },
-                        ]}
-                      />
-                    </Stack>
-                    <Stack gap="xs">
-                      <Text size="sm" fw={500}>
-                        Label spacing: {labelSpacing}px
-                      </Text>
-                      <Slider
-                        value={labelSpacing}
-                        onChange={setLabelSpacing}
-                        min={0}
-                        max={100}
-                        step={5}
-                        marks={[
-                          { value: 0, label: "0" },
-                          { value: 50, label: "50" },
-                          { value: 100, label: "100" },
-                        ]}
-                      />
-                    </Stack>
-                    <Text size="xs" c="dimmed">
-                      Selected: {selectedTranscripts.length} gene(s)
-                    </Text>
+                    {selectedTranscripts.length >= 2 && (
+                      <Stack gap="xs" pb="md">
+                        <Text size="sm" fw={500}>
+                          Gene spacing: {geneSpacing}px
+                        </Text>
+                        <Slider
+                          value={geneSpacing}
+                          onChange={setGeneSpacing}
+                          min={10}
+                          max={200}
+                          step={5}
+                          marks={[
+                            { value: 10, label: "10" },
+                            { value: 100, label: "100" },
+                            { value: 200, label: "200" },
+                          ]}
+                        />
+                      </Stack>
+                    )}
+                    {showLabels && (
+                      <Stack gap="xs" pb="md">
+                        <Text size="sm" fw={500}>
+                          Label spacing: {labelSpacing}px
+                        </Text>
+                        <Slider
+                          value={labelSpacing}
+                          onChange={setLabelSpacing}
+                          min={0}
+                          max={100}
+                          step={5}
+                          marks={[
+                            { value: 0, label: "0" },
+                            { value: 50, label: "50" },
+                            { value: 100, label: "100" },
+                          ]}
+                        />
+                      </Stack>
+                    )}
                   </Stack>
                 </Card>
 
