@@ -19,10 +19,9 @@ npm run next-dev
 source venv/bin/activate
 npm run fastapi-dev
 
-# ビルド・テスト・リント
+# ビルド・テスト・フォーマット
 npm run build
 npm run test          # Vitest
-npm run lint          # Next.js ESLint
 npm run fmt           # Biome (./app配下のフォーマット)
 npm run ts            # TypeScript型チェック
 

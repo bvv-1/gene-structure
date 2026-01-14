@@ -189,8 +189,7 @@ npm run test
 # 型チェック
 npm run ts
 
-# リント・フォーマット
-npm run lint
+# フォーマット
 npm run fmt
 ```
 
