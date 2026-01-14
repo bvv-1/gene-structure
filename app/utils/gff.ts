@@ -140,3 +140,35 @@ export function getGeneStructureInfo(mRNAs: GFF3Feature): GeneStructureInfo[] {
   }
   return geneStructureInfo;
 }
+
+/**
+ * GeneStructureInfoの配列から一意のseq_idリストを取得
+ */
+export function getSeqIds(geneStructures: GeneStructureInfo[]): string[] {
+  const seqIds = new Set(
+    geneStructures.map((g) => g.seq_id).filter((id): id is string => !!id),
+  );
+  return Array.from(seqIds).sort();
+}
+
+/**
+ * 指定した領域と重なるトランスクリプトをフィルタリング
+ * 部分的に重なる場合も含む
+ */
+export function filterByRegion(
+  geneStructures: GeneStructureInfo[],
+  seqId: string,
+  start: number,
+  end: number,
+): GeneStructureInfo[] {
+  return geneStructures
+    .filter(
+      (g) =>
+        g.seq_id === seqId &&
+        g.start != null &&
+        g.end != null &&
+        g.start <= end &&
+        g.end >= start,
+    )
+    .sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+}

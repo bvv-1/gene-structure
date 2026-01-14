@@ -10,6 +10,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  SegmentedControl,
   Select,
   Slider,
   Stack,
@@ -31,10 +32,11 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { GeneSelector } from "./components/GeneSelector";
+import { RegionSelector } from "./components/RegionSelector";
 import SvgViewer from "./components/SvgViewer";
 import {
   type GeneStructureInfo as ApiGeneStructureInfo,
@@ -46,7 +48,9 @@ import {
 } from "./lib/api";
 import {
   type GeneStructureInfo,
+  filterByRegion,
   getGeneStructureInfo,
+  getSeqIds,
   getmRNAs,
   parseGff,
 } from "./utils/gff";
@@ -72,6 +76,22 @@ type MultiGeneStructureRequest = {
   protein_domain_name?: string;
 };
 
+type RegionGeneStructureRequest = {
+  draw_settings: {
+    mode: string;
+    utr_color: string;
+    exon_color: string;
+    line_color: string;
+    intron_shape: string;
+  };
+  gene_structures: ApiGeneStructureInfo[];
+  region_start: number;
+  region_end: number;
+  show_labels: boolean;
+  gene_spacing: number;
+  label_spacing: number;
+};
+
 type ExportSettings = {
   format: "svg" | "png";
   dpi: number;
@@ -85,6 +105,53 @@ const postMultiFetcher = async (data: MultiGeneStructureRequest | null) => {
   }
 
   const response = await fetch("/api/py/generate-multi-gene-structure-svg", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    if (response.status === 422) {
+      const errorData = await response.json();
+      if (errorData.detail && Array.isArray(errorData.detail)) {
+        const errorMessages = errorData.detail
+          .map((err: { loc?: string[]; msg: string }) => {
+            const field = err.loc?.join(".") || "unknown";
+            return `${field}: ${err.msg}`;
+          })
+          .join("\n");
+
+        notifications.show({
+          title: "Validation Error",
+          message: errorMessages,
+          color: "red",
+          autoClose: 10000,
+        });
+        throw new Error("Validation error");
+      }
+    }
+
+    notifications.show({
+      title: "Error",
+      message: `API error: ${response.status}`,
+      color: "red",
+      autoClose: 5000,
+    });
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return { blob, url: window.URL.createObjectURL(blob) };
+};
+
+const postRegionFetcher = async (data: RegionGeneStructureRequest | null) => {
+  if (!data) {
+    throw new Error("No data provided");
+  }
+
+  const response = await fetch("/api/py/generate-region-gene-structure-svg", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -194,6 +261,36 @@ export default function Home() {
   const [geneSpacing, setGeneSpacing] = useState(50);
   const [labelSpacing, setLabelSpacing] = useState(10);
 
+  // Selection mode (transcript or region)
+  const [selectionMode, setSelectionMode] = useState<"transcript" | "region">(
+    "transcript",
+  );
+
+  // Region filter
+  const [regionFilter, setRegionFilter] = useState({
+    seqId: "",
+    start: "",
+    end: "",
+  });
+
+  // Derived data for region mode
+  const seqIds = useMemo(() => getSeqIds(geneStructures), [geneStructures]);
+
+  const filteredByRegion = useMemo(() => {
+    if (!regionFilter.seqId || !regionFilter.start || !regionFilter.end) {
+      return [];
+    }
+    const start = Number.parseInt(regionFilter.start);
+    const end = Number.parseInt(regionFilter.end);
+    if (Number.isNaN(start) || Number.isNaN(end) || start >= end) {
+      return [];
+    }
+    return filterByRegion(geneStructures, regionFilter.seqId, start, end);
+  }, [geneStructures, regionFilter]);
+
+  const canProceedFromRegion =
+    filteredByRegion.length > 0 && filteredByRegion.length <= 30;
+
   // Deletion and domain settings
   const [deletionRegions, setDeletionRegions] = useState<
     Array<[number | undefined, number | undefined]>
@@ -301,14 +398,61 @@ export default function Home() {
     return requestData;
   };
 
+  const getRegionRequestData = (): RegionGeneStructureRequest | null => {
+    if (filteredByRegion.length === 0) return null;
+
+    return {
+      draw_settings: {
+        mode: "domain",
+        utr_color: utrColor,
+        exon_color: exonColor,
+        line_color: lineColor,
+        intron_shape: "straight",
+      },
+      gene_structures: filteredByRegion.map((g) => ({
+        seq_id: g.seq_id,
+        source: g.source,
+        type: g.type,
+        start: g.start,
+        end: g.end,
+        score: g.score,
+        strand: g.strand,
+        phase: g.phase,
+        attributes: g.attributes,
+        transcript_id: g.transcript_id,
+        total_length: g.total_length,
+        exons: g.exons,
+        cds: g.cds,
+        five_prime_utrs: g.five_prime_utrs,
+        three_prime_utrs: g.three_prime_utrs,
+      })) as ApiGeneStructureInfo[],
+      region_start: Number.parseInt(regionFilter.start),
+      region_end: Number.parseInt(regionFilter.end),
+      show_labels: showLabels,
+      gene_spacing: geneSpacing,
+      label_spacing: labelSpacing,
+    };
+  };
+
   const { data: svgData, mutate: mutateSVG } = useSWR(
     () => {
+      if (selectionMode === "region") {
+        const requestData = getRegionRequestData();
+        return requestData
+          ? ["generate-region-gene-structure-svg", requestData]
+          : null;
+      }
       const requestData = getMultiRequestData();
       return requestData
         ? ["generate-multi-gene-structure-svg", requestData]
         : null;
     },
-    ([_key, data]) => postMultiFetcher(data),
+    ([key, data]) => {
+      if (key === "generate-region-gene-structure-svg") {
+        return postRegionFetcher(data as RegionGeneStructureRequest);
+      }
+      return postMultiFetcher(data as MultiGeneStructureRequest);
+    },
     {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
@@ -317,7 +461,7 @@ export default function Home() {
   );
 
   const handleGenerateSVG = async () => {
-    if (selectedTranscripts.length === 0) {
+    if (selectionMode === "transcript" && selectedTranscripts.length === 0) {
       notifications.show({
         title: "Error",
         message: "Please select at least one gene",
@@ -584,14 +728,36 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
             Select Transcripts
           </Title>
 
+          <SegmentedControl
+            value={selectionMode}
+            onChange={(value) =>
+              setSelectionMode(value as "transcript" | "region")
+            }
+            data={[
+              { label: "トランスクリプト選択", value: "transcript" },
+              { label: "領域指定", value: "region" },
+            ]}
+            mb="md"
+          />
+
           <Card shadow="xl" padding="lg" radius="md">
-            <GeneSelector
-              geneStructures={geneStructures}
-              selectedTranscripts={selectedTranscripts}
-              onSelectionChange={setSelectedTranscripts}
-              maxSelection={30}
-              disabled={isLoading}
-            />
+            {selectionMode === "transcript" ? (
+              <GeneSelector
+                geneStructures={geneStructures}
+                selectedTranscripts={selectedTranscripts}
+                onSelectionChange={setSelectedTranscripts}
+                maxSelection={30}
+                disabled={isLoading}
+              />
+            ) : (
+              <RegionSelector
+                seqIds={seqIds}
+                regionFilter={regionFilter}
+                onFilterChange={setRegionFilter}
+                matchCount={filteredByRegion.length}
+                maxSelection={30}
+              />
+            )}
           </Card>
 
           <Group justify="space-between" mt="md">
@@ -607,7 +773,11 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
                 setUiState("preview");
                 handleGenerateSVG();
               }}
-              disabled={selectedTranscripts.length === 0 || isLoading}
+              disabled={
+                selectionMode === "transcript"
+                  ? selectedTranscripts.length === 0 || isLoading
+                  : !canProceedFromRegion || isLoading
+              }
               loading={isLoading}
               rightSection={<IconArrowRight size={16} />}
             >

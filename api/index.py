@@ -7,9 +7,10 @@ from .models import (
     GeneStructure,
     GeneStructureRequest,
     MultiGeneStructureRequest,
+    RegionGeneStructureRequest,
 )
-from .drawer import draw_gene_structure, draw_multiple_gene_structures, DEFAULT_COLORS
-from .utils import build_gene_structure
+from .drawer import draw_gene_structure, draw_multiple_gene_structures, draw_region_gene_structures, DEFAULT_COLORS
+from .utils import build_gene_structure, build_gene_structure_no_relative
 
 
 ### Create FastAPI instance with custom docs and openapi url
@@ -213,6 +214,42 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
             exon_color=draw_settings.exon_color,
             line_color=draw_settings.line_color,
             domain_color=DEFAULT_COLORS['domain_color']
+        )
+
+        return Response(content=svg_content, media_type="image/svg+xml")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/py/generate-region-gene-structure-svg")
+async def generate_region_gene_structure_svg(request: RegionGeneStructureRequest):
+    """
+    領域指定による複数遺伝子構造を共通座標軸上に描画するエンドポイント
+    """
+    try:
+        genes = []
+        labels = []
+
+        for gene_info in request.gene_structures:
+            # to_relative()を呼ばないバージョンでGeneStructureを構築
+            gene = build_gene_structure_no_relative(gene_info)
+            genes.append(gene)
+            labels.append(gene_info.transcript_id)
+
+        # SVGを生成
+        draw_settings = request.draw_settings
+        svg_content = draw_region_gene_structures(
+            genes=genes,
+            labels=labels,
+            region_start=request.region_start,
+            region_end=request.region_end,
+            show_labels=request.show_labels,
+            gene_spacing=request.gene_spacing,
+            label_spacing=request.label_spacing,
+            utr_color=draw_settings.utr_color,
+            exon_color=draw_settings.exon_color,
+            line_color=draw_settings.line_color
         )
 
         return Response(content=svg_content, media_type="image/svg+xml")
