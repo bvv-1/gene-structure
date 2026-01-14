@@ -429,3 +429,49 @@ class MultiGeneStructureRequest(BaseModel):
             if start >= end:
                 raise ValueError(f"Domain {i}: start ({start}) must be less than end ({end})")
         return v
+
+
+class RegionGeneStructureRequest(BaseModel):
+    """領域指定による複数遺伝子のSVG生成リクエスト"""
+    draw_settings: DrawSettings
+    gene_structures: List[GeneStructureInfo]
+    region_start: int  # 表示領域の開始座標
+    region_end: int    # 表示領域の終了座標
+    show_labels: bool = True
+    gene_spacing: int = 50
+    label_spacing: int = 10
+
+    @field_validator('gene_structures')
+    @classmethod
+    def validate_gene_structures(cls, v):
+        if len(v) == 0:
+            raise ValueError("At least one gene structure is required")
+        if len(v) > 30:
+            raise ValueError("Maximum 30 gene structures allowed")
+        return v
+
+    @field_validator('gene_spacing')
+    @classmethod
+    def validate_gene_spacing(cls, v):
+        if v < 0:
+            raise ValueError("gene_spacing must be non-negative")
+        if v > 500:
+            raise ValueError("gene_spacing must be 500 or less")
+        return v
+
+    @field_validator('label_spacing')
+    @classmethod
+    def validate_label_spacing(cls, v):
+        if v < 0:
+            raise ValueError("label_spacing must be non-negative")
+        if v > 200:
+            raise ValueError("label_spacing must be 200 or less")
+        return v
+
+    @model_validator(mode='after')
+    def validate_region(self):
+        if self.region_start >= self.region_end:
+            raise ValueError(
+                f"region_start ({self.region_start}) must be less than region_end ({self.region_end})"
+            )
+        return self
