@@ -13,6 +13,7 @@ import {
   Select,
   Slider,
   Stack,
+  Stepper,
   Switch,
   Text,
   TextInput,
@@ -21,11 +22,13 @@ import {
 import { Dropzone } from "@mantine/dropzone";
 import { notifications } from "@mantine/notifications";
 import {
+  IconArrowLeft,
   IconArrowRight,
   IconCloudUpload,
   IconDownload,
-  IconPlayerPlay,
-  IconRefresh,
+  IconEye,
+  IconListSearch,
+  IconUpload,
   IconX,
 } from "@tabler/icons-react";
 import { useRef, useState } from "react";
@@ -48,7 +51,7 @@ import {
   parseGff,
 } from "./utils/gff";
 
-type UIState = "upload" | "preview";
+type UIState = "upload" | "select" | "preview";
 
 type MultiGeneStructureRequest = {
   draw_settings: {
@@ -177,7 +180,6 @@ export default function Home() {
   );
   const { groupedOptions: presetGffOptions } = useListGffs();
   const [geneStructures, setGeneStructures] = useState<GeneStructureInfo[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportSettings, setExportSettings] = useState<ExportSettings>({
@@ -231,6 +233,9 @@ export default function Home() {
         color: "green",
         autoClose: 3000,
       });
+
+      // 自動遷移: プリセット読み込み成功後にSelectへ
+      setUiState("select");
     } catch (error) {
       notifications.show({
         title: "Error",
@@ -239,46 +244,6 @@ export default function Home() {
         autoClose: 5000,
       });
       setSelectedPresetGff(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ファイル処理関数（アップロード→解析）
-  const handleFileProcess = async () => {
-    if (!selectedFile) {
-      notifications.show({
-        title: "Error",
-        message: "Select a GFF file",
-        color: "red",
-        autoClose: 5000,
-      });
-      return;
-    }
-    if (selectedTranscripts.length === 0) {
-      notifications.show({
-        title: "Error",
-        message: "Select at least one gene/transcript",
-        color: "red",
-        autoClose: 5000,
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-
-      // 処理完了後、UI状態を生成画面に変更
-      setUiState("preview");
-      await handleGenerateSVG();
-    } catch (error) {
-      console.error("Error processing file:", error);
-      notifications.show({
-        title: "Error",
-        message: `An error occurred while processing the file: ${error instanceof Error ? error.message : "Unknown error"}`,
-        color: "red",
-        autoClose: 5000,
-      });
     } finally {
       setIsLoading(false);
     }
@@ -399,22 +364,6 @@ export default function Home() {
     img.src = svgUrl;
   };
 
-  // アップロード画面に戻る関数を拡張
-  const handleResetUpload = () => {
-    // 既存のURLがあれば解放
-    if (svgData) {
-      window.URL.revokeObjectURL(svgData.url);
-    }
-    // setGeneStructures([]);
-    setSelectedTranscripts([]);
-    setSelectedFile(null);
-    setSelectedPresetGff(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    setUiState("upload");
-  };
-
   // ダウンロードハンドラーを修正
   const handleDownload = async () => {
     if (!svgData) return;
@@ -460,149 +409,211 @@ export default function Home() {
     setShowExportDialog(false);
   };
 
+  // ステップ番号を計算するヘルパー
+  const getStepNumber = (state: UIState): number => {
+    switch (state) {
+      case "upload":
+        return 0;
+      case "select":
+        return 1;
+      case "preview":
+        return 2;
+      default:
+        return 0;
+    }
+  };
+
+  // ステップクリック時のハンドラー
+  const handleStepClick = (step: number) => {
+    const currentStep = getStepNumber(uiState);
+
+    // 前のステップには常に戻れる
+    if (step < currentStep) {
+      const states: UIState[] = ["upload", "select", "preview"];
+      setUiState(states[step]);
+      return;
+    }
+
+    // 前進は条件付き
+    if (step === 1 && geneStructures.length > 0) {
+      setUiState("select");
+    } else if (step === 2 && selectedTranscripts.length > 0) {
+      setUiState("preview");
+      handleGenerateSVG();
+    }
+  };
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <Stepper
+        active={getStepNumber(uiState)}
+        onStepClick={handleStepClick}
+        mb="xl"
+      >
+        <Stepper.Step
+          label="Upload"
+          description="GFF3 file"
+          icon={<IconUpload size={18} />}
+        />
+        <Stepper.Step
+          label="Select"
+          description="Transcripts"
+          icon={<IconListSearch size={18} />}
+          allowStepSelect={geneStructures.length > 0}
+        />
+        <Stepper.Step
+          label="Preview"
+          description="Figure"
+          icon={<IconEye size={18} />}
+          allowStepSelect={selectedTranscripts.length > 0}
+        />
+      </Stepper>
+
       {uiState === "upload" && (
         <Stack>
           <Title order={2} mb="md">
-            Upload
+            Upload GFF3 File
           </Title>
 
-          <Stack mb={32} gap="md">
-            <Grid gutter="md">
-              <Grid.Col span={6}>
-                <Card shadow="xl" padding="lg" radius="md" mb={32} h="100%">
-                  <Title order={3} mb="md">
-                    Upload File
-                  </Title>
+          <Card shadow="xl" padding="lg" radius="md">
+            <Stack>
+              <Select
+                label="Select from preset GFF files"
+                placeholder="Choose a preset GFF file"
+                data={presetGffOptions}
+                value={selectedPresetGff}
+                onChange={handlePresetGffSelect}
+                searchable
+                clearable
+                disabled={isLoading}
+                maxDropdownHeight={300}
+              />
 
-                  <Stack>
-                    <Select
-                      label="Or select from preset GFF files"
-                      placeholder="Choose a preset GFF file"
-                      data={presetGffOptions}
-                      value={selectedPresetGff}
-                      onChange={handlePresetGffSelect}
-                      searchable
-                      clearable
-                      disabled={isLoading}
-                      maxDropdownHeight={300}
-                    />
+              <Divider label="OR" labelPosition="center" />
 
-                    <Divider label="OR" labelPosition="center" />
-
-                    <Dropzone
-                      style={{
-                        border: "2px dashed #D9D9D9",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                      }}
-                      onDrop={async (files) => {
-                        if (files.length > 0) {
-                          setSelectedFile(files[0]);
-                          setIsLoading(true);
-                          try {
-                            const gffData = await parseGff(files[0]);
-                            const mRNAs = getmRNAs(gffData);
-                            const geneStructureInfo =
-                              getGeneStructureInfo(mRNAs);
-                            setGeneStructures(geneStructureInfo);
-                          } catch (error) {
-                            notifications.show({
-                              title: "Error",
-                              message: `Error parsing GFF file: ${error}`,
-                              color: "red",
-                              autoClose: 5000,
-                            });
-                          } finally {
-                            setIsLoading(false);
-                          }
-                        }
-                      }}
-                      accept={{
-                        "text/plain": [".gff", ".gff3"],
-                      }}
-                      maxFiles={1}
-                      loading={isLoading}
-                    >
-                      <Group
-                        justify="center"
-                        align="center"
-                        gap="xl"
-                        style={{
-                          minHeight: 220,
-                          pointerEvents: "none",
-                          textAlign: "center",
-                        }}
-                      >
-                        <Stack align="center" gap="md">
-                          <Dropzone.Accept>
-                            <IconCloudUpload size={80} color="#AAA" />
-                          </Dropzone.Accept>
-                          <Dropzone.Reject>
-                            <IconX size={80} color="#AAA" />
-                          </Dropzone.Reject>
-                          <Dropzone.Idle>
-                            <IconCloudUpload size={80} color="#AAA" />
-                          </Dropzone.Idle>
-                          <Text size="md" c="dimmed">
-                            Drag and drop a GFF3 file here
-                            <br />
-                            or click to select a file
-                          </Text>
-                          {selectedFile && (
-                            <Text size="sm" mt="md">
-                              Selected file: {selectedFile.name}
-                            </Text>
-                          )}
-                        </Stack>
-                      </Group>
-                    </Dropzone>
-
-                    <div style={{ marginTop: "1rem" }}>
-                      <Text fw={500} mb="xs">
-                        Example GFF3 Format:
+              <Dropzone
+                style={{
+                  border: "2px dashed #D9D9D9",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                }}
+                onDrop={async (files) => {
+                  if (files.length > 0) {
+                    setSelectedFile(files[0]);
+                    setIsLoading(true);
+                    try {
+                      const gffData = await parseGff(files[0]);
+                      const mRNAs = getmRNAs(gffData);
+                      const geneStructureInfo = getGeneStructureInfo(mRNAs);
+                      setGeneStructures(geneStructureInfo);
+                      // 自動遷移: ファイル解析成功後にSelectへ
+                      setUiState("select");
+                    } catch (error) {
+                      notifications.show({
+                        title: "Error",
+                        message: `Error parsing GFF file: ${error}`,
+                        color: "red",
+                        autoClose: 5000,
+                      });
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }
+                }}
+                accept={{
+                  "text/plain": [".gff", ".gff3"],
+                }}
+                maxFiles={1}
+                loading={isLoading}
+              >
+                <Group
+                  justify="center"
+                  align="center"
+                  gap="xl"
+                  style={{
+                    minHeight: 220,
+                    pointerEvents: "none",
+                    textAlign: "center",
+                  }}
+                >
+                  <Stack align="center" gap="md">
+                    <Dropzone.Accept>
+                      <IconCloudUpload size={80} color="#AAA" />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                      <IconX size={80} color="#AAA" />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                      <IconCloudUpload size={80} color="#AAA" />
+                    </Dropzone.Idle>
+                    <Text size="md" c="dimmed">
+                      Drag and drop a GFF3 file here
+                      <br />
+                      or click to select a file
+                    </Text>
+                    {selectedFile && (
+                      <Text size="sm" mt="md">
+                        Selected file: {selectedFile.name}
                       </Text>
-                      <Code block p="md">
-                        {`##gff-version 3
+                    )}
+                  </Stack>
+                </Group>
+              </Dropzone>
+
+              <div style={{ marginTop: "1rem" }}>
+                <Text fw={500} mb="xs">
+                  Example GFF3 Format:
+                </Text>
+                <Code block p="md">
+                  {`##gff-version 3
 Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
 Chr1 TAIR10 mRNA 3631 5899 . + . ID=AT1G01010.1;Parent=AT1G01010
 Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
 Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
-                      </Code>
-                    </div>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-
-              <Grid.Col span={6}>
-                <Card shadow="xl" padding="lg" radius="md" mb={32} h="100%">
-                  <Title order={3} mb="md">
-                    Select Genes/Transcripts
-                  </Title>
-
-                  <GeneSelector
-                    geneStructures={geneStructures}
-                    selectedTranscripts={selectedTranscripts}
-                    onSelectionChange={setSelectedTranscripts}
-                    maxSelection={30}
-                    disabled={!geneStructures.length || isLoading}
-                  />
-                </Card>
-              </Grid.Col>
-            </Grid>
-
-            <Stack align="flex-end" mb="8">
-              <Button
-                onClick={handleFileProcess}
-                disabled={isLoading || !selectedFile}
-                loading={isLoading}
-                rightSection={<IconArrowRight size={16} />}
-              >
-                Generate Preview
-              </Button>
+                </Code>
+              </div>
             </Stack>
-          </Stack>
+          </Card>
+        </Stack>
+      )}
+
+      {/* Select画面 */}
+      {uiState === "select" && (
+        <Stack>
+          <Title order={2} mb="md">
+            Select Transcripts
+          </Title>
+
+          <Card shadow="xl" padding="lg" radius="md">
+            <GeneSelector
+              geneStructures={geneStructures}
+              selectedTranscripts={selectedTranscripts}
+              onSelectionChange={setSelectedTranscripts}
+              maxSelection={30}
+              disabled={isLoading}
+            />
+          </Card>
+
+          <Group justify="space-between" mt="md">
+            <Button
+              variant="outline"
+              onClick={() => setUiState("upload")}
+              leftSection={<IconArrowLeft size={16} />}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={() => {
+                setUiState("preview");
+                handleGenerateSVG();
+              }}
+              disabled={selectedTranscripts.length === 0 || isLoading}
+              loading={isLoading}
+              rightSection={<IconArrowRight size={16} />}
+            >
+              Generate Preview
+            </Button>
+          </Group>
         </Stack>
       )}
 
@@ -618,44 +629,28 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
               <Card shadow="xl" radius="md">
                 <SvgViewer svgUrl={svgData?.url} />
               </Card>
+              <Button
+                variant="outline"
+                onClick={() => setUiState("select")}
+                disabled={isLoading}
+                leftSection={<IconArrowLeft size={16} />}
+                mt="md"
+              >
+                Back to Select
+              </Button>
             </Grid.Col>
 
             <Grid.Col span={4}>
               <Stack gap="md">
-                <Card shadow="xl" padding="lg" radius="md">
-                  <Title order={3} mb="md">
-                    Actions
-                  </Title>
-                  <Stack gap="md">
-                    <Button
-                      onClick={() => handleGenerateSVG()}
-                      disabled={isLoading}
-                      loading={isLoading}
-                      leftSection={<IconPlayerPlay size={16} />}
-                      fullWidth
-                    >
-                      Regenerate
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleResetUpload}
-                      disabled={isLoading}
-                      leftSection={<IconRefresh size={16} />}
-                      fullWidth
-                    >
-                      Back to Upload
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowExportDialog(true)}
-                      disabled={isLoading || !svgData}
-                      leftSection={<IconDownload size={16} />}
-                      fullWidth
-                    >
-                      Export
-                    </Button>
-                  </Stack>
-                </Card>
+                <Button
+                  size="lg"
+                  onClick={() => setShowExportDialog(true)}
+                  disabled={isLoading || !svgData}
+                  leftSection={<IconDownload size={20} />}
+                  fullWidth
+                >
+                  Export
+                </Button>
 
                 <Card shadow="xl" padding="lg" radius="md">
                   <Title order={3} mb="md">
