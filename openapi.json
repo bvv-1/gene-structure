@@ -79,6 +79,43 @@
         }
       }
     },
+    "/api/py/generate-region-gene-structure-svg": {
+      "post": {
+        "summary": "Generate Region Gene Structure Svg",
+        "description": "\u9818\u57df\u6307\u5b9a\u306b\u3088\u308b\u8907\u6570\u907a\u4f1d\u5b50\u69cb\u9020\u3092\u5171\u901a\u5ea7\u6a19\u8ef8\u4e0a\u306b\u63cf\u753b\u3059\u308b\u30a8\u30f3\u30c9\u30dd\u30a4\u30f3\u30c8",
+        "operationId": "generate_region_gene_structure_svg_api_py_generate_region_gene_structure_svg_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegionGeneStructureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "summary": "Root",
@@ -499,6 +536,52 @@
           "end"
         ],
         "title": "Position"
+      },
+      "RegionGeneStructureRequest": {
+        "properties": {
+          "draw_settings": {
+            "$ref": "#/components/schemas/DrawSettings"
+          },
+          "gene_structures": {
+            "items": {
+              "$ref": "#/components/schemas/GeneStructureInfo"
+            },
+            "type": "array",
+            "title": "Gene Structures"
+          },
+          "region_start": {
+            "type": "integer",
+            "title": "Region Start"
+          },
+          "region_end": {
+            "type": "integer",
+            "title": "Region End"
+          },
+          "show_labels": {
+            "type": "boolean",
+            "title": "Show Labels",
+            "default": true
+          },
+          "gene_spacing": {
+            "type": "integer",
+            "title": "Gene Spacing",
+            "default": 50
+          },
+          "label_spacing": {
+            "type": "integer",
+            "title": "Label Spacing",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "draw_settings",
+          "gene_structures",
+          "region_start",
+          "region_end"
+        ],
+        "title": "RegionGeneStructureRequest",
+        "description": "\u9818\u57df\u6307\u5b9a\u306b\u3088\u308b\u8907\u6570\u907a\u4f1d\u5b50\u306eSVG\u751f\u6210\u30ea\u30af\u30a8\u30b9\u30c8"
       },
       "ValidationError": {
         "properties": {

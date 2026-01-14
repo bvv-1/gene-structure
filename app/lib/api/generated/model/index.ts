@@ -34,3 +34,4 @@ export * from './multiGeneStructureRequestDomainsItem';
 export * from './multiGeneStructureRequestProteinDomainEnd';
 export * from './multiGeneStructureRequestProteinDomainName';
 export * from './multiGeneStructureRequestProteinDomainStart';
+export * from './regionGeneStructureRequest';

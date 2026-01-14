@@ -18,7 +18,8 @@ import type {
 import type {
   GeneStructureRequest,
   HTTPValidationError,
-  MultiGeneStructureRequest
+  MultiGeneStructureRequest,
+  RegionGeneStructureRequest
 } from '.././model';
 
 import { customFetch } from '../../custom-fetch';
@@ -113,6 +114,52 @@ export const useGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgP
 
   const swrKey = swrOptions?.swrKey ?? getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationKey();
   const swrFn = getGenerateMultiGeneStructureSvgApiPyGenerateMultiGeneStructureSvgPostMutationFetcher(requestOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+/**
+ * 領域指定による複数遺伝子構造を共通座標軸上に描画するエンドポイント
+ * @summary Generate Region Gene Structure Svg
+ */
+export const generateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost = (
+    regionGeneStructureRequest: RegionGeneStructureRequest,
+ options?: SecondParameter<typeof customFetch>) => {
+    return customFetch<unknown>(
+    {url: `/api/py/generate-region-gene-structure-svg`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: regionGeneStructureRequest
+    },
+    options);
+  }
+
+
+
+export const getGenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationFetcher = ( options?: SecondParameter<typeof customFetch>) => {
+  return (_: Key, { arg }: { arg: RegionGeneStructureRequest }) => {
+    return generateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost(arg, options);
+  }
+}
+export const getGenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationKey = () => [`/api/py/generate-region-gene-structure-svg`] as const;
+
+export type GenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationResult = NonNullable<Awaited<ReturnType<typeof generateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost>>>
+export type GenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationError = HTTPValidationError
+
+/**
+ * @summary Generate Region Gene Structure Svg
+ */
+export const useGenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost = <TError = HTTPValidationError>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof generateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost>>, TError, Key, RegionGeneStructureRequest, Awaited<ReturnType<typeof generateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPost>>> & { swrKey?: string }, request?: SecondParameter<typeof customFetch>}
+) => {
+
+  const {swr: swrOptions, request: requestOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getGenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationKey();
+  const swrFn = getGenerateRegionGeneStructureSvgApiPyGenerateRegionGeneStructureSvgPostMutationFetcher(requestOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions)
 
