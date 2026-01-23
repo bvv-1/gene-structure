@@ -46,6 +46,6 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/react-svg-pan-zoom": "^3.3.9",
-    "orval": "^8.0.2"
+    "orval": "^8.0.3"
   }
 }
