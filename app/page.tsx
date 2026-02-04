@@ -734,8 +734,8 @@ Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
               setSelectionMode(value as "transcript" | "region")
             }
             data={[
-              { label: "トランスクリプト選択", value: "transcript" },
-              { label: "領域指定", value: "region" },
+              { label: "Transcript Selection", value: "transcript" },
+              { label: "Region Selection", value: "region" },
             ]}
             mb="md"
           />

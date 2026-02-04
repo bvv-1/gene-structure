@@ -33,7 +33,7 @@ export function RegionSelector({
     <Stack gap="md">
       <Select
         label="Chromosome"
-        placeholder="染色体を選択"
+        placeholder="Select chromosome"
         data={seqIds}
         value={regionFilter.seqId}
         onChange={(value) =>
@@ -46,7 +46,7 @@ export function RegionSelector({
       <Group grow>
         <NumberInput
           label="Start"
-          placeholder="開始座標"
+          placeholder="Start position"
           value={regionFilter.start ? Number.parseInt(regionFilter.start) : ""}
           onChange={(value) =>
             onFilterChange({ ...regionFilter, start: String(value || "") })
@@ -57,7 +57,7 @@ export function RegionSelector({
 
         <NumberInput
           label="End"
-          placeholder="終了座標"
+          placeholder="End position"
           value={regionFilter.end ? Number.parseInt(regionFilter.end) : ""}
           onChange={(value) =>
             onFilterChange({ ...regionFilter, end: String(value || "") })
@@ -71,22 +71,21 @@ export function RegionSelector({
         isValidRange &&
         (matchCount === 0 ? (
           <Alert icon={<IconInfoCircle size={16} />} color="yellow">
-            この領域にはトランスクリプトがありません
+            No transcripts found in this region
           </Alert>
         ) : isOverLimit ? (
           <Alert icon={<IconInfoCircle size={16} />} color="red">
-            {matchCount}件のトランスクリプトが見つかりました（上限
-            {maxSelection}件を超えています）
+            {matchCount} transcripts found (exceeds limit of {maxSelection})
           </Alert>
         ) : (
           <Text size="sm" c="dimmed">
-            {matchCount}件のトランスクリプトが見つかりました
+            {matchCount} transcripts found
           </Text>
         ))}
 
       {!isValidRange && regionFilter.start && regionFilter.end && (
         <Alert icon={<IconInfoCircle size={16} />} color="red">
-          開始座標は終了座標より小さくしてください
+          Start position must be less than end position
         </Alert>
       )}
     </Stack>

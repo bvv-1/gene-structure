@@ -48,7 +48,7 @@ export default function SvgViewer({
           backgroundColor: "#f5f5f5",
         }}
       >
-        <p style={{ color: "#666" }}>SVGコンテンツが読み込まれていません</p>
+        <p style={{ color: "#666" }}>No SVG content loaded</p>
       </div>
     );
   }
