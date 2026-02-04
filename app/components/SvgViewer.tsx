@@ -88,8 +88,19 @@ export default function SvgViewer({
   // Empty content state
   if (!svgContent) {
     return (
-      <div style={placeholderStyle}>
-        <Text c="dimmed">No SVG content available</Text>
+      <div
+        style={{
+          width,
+          height,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          backgroundColor: "#f5f5f5",
+        }}
+      >
+        <p style={{ color: "#666" }}>No SVG content loaded</p>
       </div>
     );
   }

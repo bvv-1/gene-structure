@@ -8,7 +8,8 @@
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
     "build": "npm run generate:api && next build",
     "start": "next start",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "fmt": "biome check --write ./app",
     "ts": "tsc --noEmit",
     "generate:api": "orval",
@@ -45,6 +46,6 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/react-svg-pan-zoom": "^3.3.9",
-    "orval": "^7.18.0"
+    "orval": "^8.2.0"
   }
 }
