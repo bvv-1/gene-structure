@@ -40,3 +40,5 @@ venv
 
 # worktrees
 .worktrees/
+# next-agents-md
+.next-docs/
