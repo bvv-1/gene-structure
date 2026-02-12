@@ -3,7 +3,6 @@
 import {
   Button,
   Card,
-  Code,
   ColorInput,
   Divider,
   Grid,
@@ -328,7 +327,10 @@ export default function Home() {
     } catch (error) {
       notifications.show({
         title: "Error",
-        message: `Error loading preset GFF file: ${error}`,
+        message:
+          error instanceof Error
+            ? error.message
+            : "プリセットGFFファイルの読み込み中にエラーが発生しました。",
         color: "red",
         autoClose: 5000,
       });
@@ -650,7 +652,10 @@ export default function Home() {
                     } catch (error) {
                       notifications.show({
                         title: "Error",
-                        message: `Error parsing file: ${error}`,
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : "ファイルの解析中に予期しないエラーが発生しました。",
                         color: "red",
                         autoClose: 5000,
                       });
@@ -698,19 +703,6 @@ export default function Home() {
                   </Stack>
                 </Group>
               </Dropzone>
-
-              <div style={{ marginTop: "1rem" }}>
-                <Text fw={500} mb="xs">
-                  Example GFF3 Format:
-                </Text>
-                <Code block p="md">
-                  {`##gff-version 3
-Chr1 TAIR10 gene 3631 5899 . + . ID=AT1G01010;Name=AT1G01010
-Chr1 TAIR10 mRNA 3631 5899 . + . ID=AT1G01010.1;Parent=AT1G01010
-Chr1 TAIR10 exon 3631 3913 . + . Parent=AT1G01010.1
-Chr1 TAIR10 exon 3996 4276 . + . Parent=AT1G01010.1`}
-                </Code>
-              </div>
             </Stack>
           </Card>
         </Stack>
