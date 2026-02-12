@@ -71,13 +71,36 @@ export function parseFileContent(
   content: string,
   fileName: string,
 ): GeneStructureInfo[] {
-  const format = detectFileFormat(fileName);
-  if (format === "gtf") {
-    return parseGtfString(content);
+  if (!content.trim()) {
+    throw new Error(
+      "ファイルが空です。GFF3またはGTF形式のファイルを選択してください。",
+    );
   }
-  const gff = parseStringSync(content);
-  const mRNAs = getmRNAs(gff);
-  return getGeneStructureInfo(mRNAs);
+
+  const format = detectFileFormat(fileName);
+
+  let result: GeneStructureInfo[];
+  if (format === "gtf") {
+    result = parseGtfString(content);
+  } else {
+    try {
+      const gff = parseStringSync(content);
+      const mRNAs = getmRNAs(gff);
+      result = getGeneStructureInfo(mRNAs);
+    } catch (e) {
+      throw new Error(
+        "GFF3ファイルの解析に失敗しました。ファイルがGFF3形式であることを確認してください。",
+      );
+    }
+  }
+
+  if (result.length === 0) {
+    throw new Error(
+      "mRNA/トランスクリプトが見つかりませんでした。ファイルにmRNAフィーチャーが含まれていることを確認してください。",
+    );
+  }
+
+  return result;
 }
 
 export function parseGtfString(content: string): GeneStructureInfo[] {
