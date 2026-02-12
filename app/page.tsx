@@ -46,14 +46,8 @@ import {
   generateGeneStructureSvgBlob,
   useListGffs,
 } from "./lib/api";
-import {
-  type GeneStructureInfo,
-  filterByRegion,
-  getGeneStructureInfo,
-  getSeqIds,
-  getmRNAs,
-  parseGff,
-} from "./utils/gff";
+import { type GeneStructureInfo, filterByRegion, getSeqIds } from "./utils/gff";
+import { parseFileContent } from "./utils/gtf";
 
 type UIState = "upload" | "select" | "preview";
 
@@ -319,9 +313,7 @@ export default function Home() {
       });
 
       setSelectedFile(file);
-      const gffData = await parseGff(file);
-      const mRNAs = getmRNAs(gffData);
-      const geneStructureInfo = getGeneStructureInfo(mRNAs);
+      const geneStructureInfo = parseFileContent(text, file.name);
       setGeneStructures(geneStructureInfo);
 
       notifications.show({
@@ -643,19 +635,22 @@ export default function Home() {
                 }}
                 onDrop={async (files) => {
                   if (files.length > 0) {
-                    setSelectedFile(files[0]);
+                    const file = files[0];
+                    setSelectedFile(file);
                     setIsLoading(true);
                     try {
-                      const gffData = await parseGff(files[0]);
-                      const mRNAs = getmRNAs(gffData);
-                      const geneStructureInfo = getGeneStructureInfo(mRNAs);
+                      const text = await file.text();
+                      const geneStructureInfo = parseFileContent(
+                        text,
+                        file.name,
+                      );
                       setGeneStructures(geneStructureInfo);
                       // 自動遷移: ファイル解析成功後にSelectへ
                       setUiState("select");
                     } catch (error) {
                       notifications.show({
                         title: "Error",
-                        message: `Error parsing GFF file: ${error}`,
+                        message: `Error parsing file: ${error}`,
                         color: "red",
                         autoClose: 5000,
                       });
@@ -665,7 +660,7 @@ export default function Home() {
                   }
                 }}
                 accept={{
-                  "text/plain": [".gff", ".gff3"],
+                  "text/plain": [".gff", ".gff3", ".gtf"],
                 }}
                 maxFiles={1}
                 loading={isLoading}
@@ -691,7 +686,7 @@ export default function Home() {
                       <IconCloudUpload size={80} color="#AAA" />
                     </Dropzone.Idle>
                     <Text size="md" c="dimmed">
-                      Drag and drop a GFF3 file here
+                      Drag and drop a GFF3/GTF file here
                       <br />
                       or click to select a file
                     </Text>
