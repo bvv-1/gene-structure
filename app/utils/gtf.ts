@@ -1,6 +1,5 @@
 import GTF from "@gmod/gtf";
-import { parseStringSync } from "gff-nostream";
-import { type GeneStructureInfo, getGeneStructureInfo, getmRNAs } from "./gff";
+import { type GeneStructureInfo, parseGff3File, parseGff3String } from "./gff";
 
 // @gmod/gtfのutil関数を取得（ESM互換）
 const gtfModule = (GTF as { default?: typeof GTF }).default || GTF;
@@ -68,10 +67,11 @@ export function parseFileContent(
     result = parseGtfString(content);
   } else {
     try {
-      const gff = parseStringSync(content);
-      const mRNAs = getmRNAs(gff);
-      result = getGeneStructureInfo(mRNAs);
+      result = parseGff3String(content);
     } catch (e) {
+      if (e instanceof Error && e.message.includes("mRNA/トランスクリプト")) {
+        throw e;
+      }
       throw new Error(
         "GFF3ファイルの解析に失敗しました。ファイルがGFF3形式であることを確認してください。",
       );
@@ -234,47 +234,16 @@ export async function parseGtfFile(file: File): Promise<GeneStructureInfo[]> {
 }
 
 // ブラウザ用：GFF3/GTF対応の統合関数（Fileオブジェクト用）
+// 両フォーマットともストリーミング処理を使用
 export async function parseFile(file: File): Promise<GeneStructureInfo[]> {
   const format = detectFileFormat(file.name);
 
   if (format === "gtf") {
-    // GTF: 常にストリーミング処理
     return parseGtfFile(file);
   }
 
-  // GFF3: gff-nostreamがストリーミング非対応のため文字列ベース
-  const content = await file.text();
-  return parseGff3String(content);
-}
-
-// GFF3パース関数（parseFileContentから分離）
-function parseGff3String(content: string): GeneStructureInfo[] {
-  if (!content.trim()) {
-    throw new Error(
-      "ファイルが空です。GFF3またはGTF形式のファイルを選択してください。",
-    );
-  }
-
-  try {
-    const gff = parseStringSync(content);
-    const mRNAs = getmRNAs(gff);
-    const result = getGeneStructureInfo(mRNAs);
-
-    if (result.length === 0) {
-      throw new Error(
-        "mRNA/トランスクリプトが見つかりませんでした。ファイルにmRNAフィーチャーが含まれていることを確認してください。",
-      );
-    }
-
-    return result;
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("mRNA/トランスクリプト")) {
-      throw e;
-    }
-    throw new Error(
-      "GFF3ファイルの解析に失敗しました。ファイルがGFF3形式であることを確認してください。",
-    );
-  }
+  // GFF3: ストリーミング処理を使用
+  return parseGff3File(file);
 }
 
 export function parseGtfString(content: string): GeneStructureInfo[] {
