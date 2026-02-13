@@ -46,7 +46,7 @@ import {
   useListGffs,
 } from "./lib/api";
 import { type GeneStructureInfo, filterByRegion, getSeqIds } from "./utils/gff";
-import { parseFileContent } from "./utils/gtf";
+import { parseFile, parseFileContent } from "./utils/gtf";
 
 type UIState = "upload" | "select" | "preview";
 
@@ -641,11 +641,8 @@ export default function Home() {
                     setSelectedFile(file);
                     setIsLoading(true);
                     try {
-                      const text = await file.text();
-                      const geneStructureInfo = parseFileContent(
-                        text,
-                        file.name,
-                      );
+                      // GTFはストリーミング、GFF3は文字列ベースで処理
+                      const geneStructureInfo = await parseFile(file);
                       setGeneStructures(geneStructureInfo);
                       // 自動遷移: ファイル解析成功後にSelectへ
                       setUiState("select");

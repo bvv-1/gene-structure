@@ -19,6 +19,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@gmod/gtf": "^0.0.9",
     "@mantine/core": "^8.3.6",
     "@mantine/dropzone": "^8.3.6",
     "@mantine/hooks": "^8.3.6",
