@@ -2,81 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
-  type GtfLine,
   detectFileFormat,
+  parseFile,
   parseFileContent,
-  parseGtfAttributes,
-  parseGtfLine,
+  parseGtfFile,
+  parseGtfFileGenerator,
   parseGtfString,
 } from "./gtf";
+import { parseGtfStreamGenerator } from "./gtf-server";
 
 describe("GTFパーサーのテスト", () => {
-  describe("parseGtfAttributes", () => {
-    test("gene_idとtranscript_idをパースできる", () => {
-      const attr = 'gene_id "Os01g0100100"; transcript_id "Os01t0100100-01";';
-      const result = parseGtfAttributes(attr);
-      expect(result.gene_id).toBe("Os01g0100100");
-      expect(result.transcript_id).toBe("Os01t0100100-01");
-    });
-
-    test("追加属性もパースできる", () => {
-      const attr =
-        'gene_id "ENSG00000223972"; transcript_id "ENST00000456328"; gene_name "DDX11L1"; gene_biotype "transcribed_unprocessed_pseudogene";';
-      const result = parseGtfAttributes(attr);
-      expect(result.gene_id).toBe("ENSG00000223972");
-      expect(result.transcript_id).toBe("ENST00000456328");
-      expect(result.gene_name).toBe("DDX11L1");
-      expect(result.gene_biotype).toBe("transcribed_unprocessed_pseudogene");
-    });
-
-    test("空文字列は空オブジェクトを返す", () => {
-      const result = parseGtfAttributes("");
-      expect(result).toEqual({});
-    });
-  });
-
-  describe("parseGtfLine", () => {
-    test("CDS行をパースできる", () => {
-      const line =
-        'chr01\tirgsp1_rep\tCDS\t3449\t3616\t.\t+\t0\tgene_id "Os01g0100100"; transcript_id "Os01t0100100-01";';
-      const result = parseGtfLine(line);
-      expect(result).toEqual({
-        seq_id: "chr01",
-        source: "irgsp1_rep",
-        type: "CDS",
-        start: 3449,
-        end: 3616,
-        score: null,
-        strand: "+",
-        phase: "0",
-        attributes: {
-          gene_id: "Os01g0100100",
-          transcript_id: "Os01t0100100-01",
-        },
-      } satisfies GtfLine);
-    });
-
-    test("five_prime_utr行をパースできる", () => {
-      const line =
-        'chr01\tirgsp1_rep\tfive_prime_utr\t2983\t3268\t.\t+\t.\tgene_id "Os01g0100100"; transcript_id "Os01t0100100-01";';
-      const result = parseGtfLine(line);
-      expect(result?.type).toBe("five_prime_utr");
-      expect(result?.start).toBe(2983);
-      expect(result?.end).toBe(3268);
-      expect(result?.phase).toBeNull();
-    });
-
-    test("コメント行はnullを返す", () => {
-      const result = parseGtfLine("# this is a comment");
-      expect(result).toBeNull();
-    });
-
-    test("空行はnullを返す", () => {
-      const result = parseGtfLine("");
-      expect(result).toBeNull();
-    });
-  });
-
   describe("parseGtfString", () => {
     test("GTFからGeneStructureInfoを生成できる", () => {
       const filePath = path.resolve(__dirname, "./transcripts.gtf");
@@ -171,6 +106,154 @@ describe("GTFパーサーのテスト", () => {
     });
   });
 
+  describe("parseGtfStreamGenerator", () => {
+    test("ストリームでGTFをパースできる", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const stream = fs.createReadStream(filePath);
+      const results = [];
+      for await (const info of parseGtfStreamGenerator(stream)) {
+        results.push(info);
+      }
+
+      expect(results.length).toBe(3);
+    });
+
+    test("ストリームでCDS座標が正しく抽出される", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const stream = fs.createReadStream(filePath);
+      const results = [];
+      for await (const info of parseGtfStreamGenerator(stream)) {
+        results.push(info);
+      }
+
+      const transcript1 = results.find(
+        (r) => r.transcript_id === "Os01t0100100-01",
+      );
+      expect(transcript1).toBeDefined();
+      expect(transcript1?.cds.length).toBe(10);
+      expect(transcript1?.cds[0]).toEqual({ start: 3449, end: 3616 });
+    });
+
+    test("ストリームでstrandが正しく設定される", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const stream = fs.createReadStream(filePath);
+      const results = [];
+      for await (const info of parseGtfStreamGenerator(stream)) {
+        results.push(info);
+      }
+
+      const minus = results.find((r) => r.transcript_id === "Os01t0100300-00");
+      expect(minus?.strand).toBe("-");
+      expect(minus?.cds.length).toBe(2);
+    });
+  });
+
+  describe("parseGtfStream - 大きなファイル", () => {
+    test.skipIf(!fs.existsSync("./app/utils/gtf/Homo_sapiens.GRCh38.114.gtf"))(
+      "1.6GBのGTFファイルをOOMなしでパースできる (Generator)",
+      async () => {
+        const filePath = "./app/utils/gtf/Homo_sapiens.GRCh38.114.gtf";
+        const stream = fs.createReadStream(filePath);
+
+        let count = 0;
+        // AsyncGeneratorを使用してメモリ効率よく処理
+        for await (const _ of parseGtfStreamGenerator(stream)) {
+          count++;
+          // 進捗表示（10万件ごと）
+          if (count % 100000 === 0) {
+            console.log(`処理中: ${count} トランスクリプト`);
+          }
+        }
+
+        expect(count).toBeGreaterThan(0);
+        console.log(`パースしたトランスクリプト数: ${count}`);
+      },
+      300000, // 5分タイムアウト
+    );
+
+    test.skipIf(
+      !fs.existsSync(
+        "./app/utils/gtf/Saccharomyces_cerevisiae.R64-1-1.114.gtf",
+      ),
+    )(
+      "小さなファイル(酵母)でGeneratorが正しく動作する",
+      async () => {
+        const filePath =
+          "./app/utils/gtf/Saccharomyces_cerevisiae.R64-1-1.114.gtf";
+        const stream = fs.createReadStream(filePath);
+
+        let count = 0;
+        for await (const _ of parseGtfStreamGenerator(stream)) {
+          count++;
+        }
+
+        expect(count).toBeGreaterThan(0);
+        console.log(`酵母のトランスクリプト数: ${count}`);
+      },
+      60000,
+    );
+  });
+
+  describe("parseGtfFileGenerator (File API)", () => {
+    test("File APIでGTFをパースできる", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gtf");
+
+      const results = [];
+      for await (const info of parseGtfFileGenerator(file)) {
+        results.push(info);
+      }
+
+      expect(results.length).toBe(3);
+    });
+
+    test("File APIでCDS座標が正しく抽出される", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gtf");
+
+      const results = [];
+      for await (const info of parseGtfFileGenerator(file)) {
+        results.push(info);
+      }
+
+      const transcript1 = results.find(
+        (r) => r.transcript_id === "Os01t0100100-01",
+      );
+      expect(transcript1).toBeDefined();
+      expect(transcript1?.cds.length).toBe(10);
+    });
+
+    test.skipIf(
+      !fs.existsSync(
+        "./app/utils/gtf/Saccharomyces_cerevisiae.R64-1-1.114.gtf",
+      ),
+    )(
+      "File APIで酵母GTFファイルをパースできる (Generator)",
+      async () => {
+        // 注: 1.6GBのヒトGTFはfs.readFileSyncからFileへの変換時にメモリ問題が発生するため、
+        // 酵母ファイルで動作確認。ブラウザ環境では大ファイルもストリーミングで処理可能。
+        const filePath =
+          "./app/utils/gtf/Saccharomyces_cerevisiae.R64-1-1.114.gtf";
+        const content = fs.readFileSync(filePath);
+        const file = new File(
+          [content],
+          "Saccharomyces_cerevisiae.R64-1-1.114.gtf",
+        );
+
+        let count = 0;
+        for await (const _ of parseGtfFileGenerator(file)) {
+          count++;
+        }
+
+        expect(count).toBeGreaterThan(0);
+        console.log(`File APIでパースした酵母トランスクリプト数: ${count}`);
+      },
+      60000,
+    );
+  });
+
   describe("parseFileContent", () => {
     test("GTFファイルをGeneStructureInfoに変換できる", () => {
       const filePath = path.resolve(__dirname, "./transcripts.gtf");
@@ -196,6 +279,54 @@ describe("GTFパーサーのテスト", () => {
       expect(first).toBeDefined();
       expect(first?.cds.length).toBe(10);
       expect(first?.cds[0]).toEqual({ start: 3449, end: 3616 });
+    });
+  });
+
+  describe("parseFile (統合関数)", () => {
+    test("GTFファイルをFileオブジェクトからパースできる", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gtf");
+
+      const result = await parseFile(file);
+      expect(result.length).toBe(3);
+      expect(result[0].transcript_id).toBeDefined();
+    });
+
+    test("GFF3ファイルをFileオブジェクトからパースできる", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gff");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gff");
+
+      const result = await parseFile(file);
+      expect(result.length).toBe(15);
+      expect(result[0].transcript_id).toBeDefined();
+    });
+
+    test("GTFファイルでCDS座標が正しく抽出される", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gtf");
+
+      const result = await parseFile(file);
+      const transcript1 = result.find(
+        (r) => r.transcript_id === "Os01t0100100-01",
+      );
+      expect(transcript1).toBeDefined();
+      expect(transcript1?.cds.length).toBe(10);
+      expect(transcript1?.cds[0]).toEqual({ start: 3449, end: 3616 });
+    });
+  });
+
+  describe("parseGtfFile", () => {
+    test("GTFファイルを配列として返す", async () => {
+      const filePath = path.resolve(__dirname, "./transcripts.gtf");
+      const content = fs.readFileSync(filePath);
+      const file = new File([content], "transcripts.gtf");
+
+      const result = await parseGtfFile(file);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(3);
     });
   });
 });
