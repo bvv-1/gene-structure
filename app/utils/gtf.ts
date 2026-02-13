@@ -67,6 +67,70 @@ export function detectFileFormat(fileName: string): "gff3" | "gtf" {
   return "gff3";
 }
 
+/**
+ * GTFファイルをサーバーサイドでパースする（@gmod/gtf使用）
+ */
+export async function parseGtfContentAsync(
+  content: string,
+): Promise<GeneStructureInfo[]> {
+  const response = await fetch("/api/parse-gtf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    throw new Error(json.error || "GTFファイルの解析に失敗しました。");
+  }
+
+  return json.data as GeneStructureInfo[];
+}
+
+/**
+ * ファイル内容をパースする（非同期）
+ * GTFはサーバーサイド、GFF3はクライアントサイドでパース
+ */
+export async function parseFileContentAsync(
+  content: string,
+  fileName: string,
+): Promise<GeneStructureInfo[]> {
+  if (!content.trim()) {
+    throw new Error(
+      "ファイルが空です。GFF3またはGTF形式のファイルを選択してください。",
+    );
+  }
+
+  const format = detectFileFormat(fileName);
+
+  let result: GeneStructureInfo[];
+  if (format === "gtf") {
+    result = await parseGtfContentAsync(content);
+  } else {
+    try {
+      const gff = parseStringSync(content);
+      const mRNAs = getmRNAs(gff);
+      result = getGeneStructureInfo(mRNAs);
+    } catch (e) {
+      throw new Error(
+        "GFF3ファイルの解析に失敗しました。ファイルがGFF3形式であることを確認してください。",
+      );
+    }
+  }
+
+  if (result.length === 0) {
+    throw new Error(
+      "mRNA/トランスクリプトが見つかりませんでした。ファイルにmRNAフィーチャーが含まれていることを確認してください。",
+    );
+  }
+
+  return result;
+}
+
+/**
+ * @deprecated parseFileContentAsyncを使用してください
+ */
 export function parseFileContent(
   content: string,
   fileName: string,

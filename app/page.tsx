@@ -46,7 +46,7 @@ import {
   useListGffs,
 } from "./lib/api";
 import { type GeneStructureInfo, filterByRegion, getSeqIds } from "./utils/gff";
-import { parseFileContent } from "./utils/gtf";
+import { parseFileContentAsync } from "./utils/gtf";
 
 type UIState = "upload" | "select" | "preview";
 
@@ -312,7 +312,7 @@ export default function Home() {
       });
 
       setSelectedFile(file);
-      const geneStructureInfo = parseFileContent(text, file.name);
+      const geneStructureInfo = await parseFileContentAsync(text, file.name);
       setGeneStructures(geneStructureInfo);
 
       notifications.show({
@@ -642,7 +642,7 @@ export default function Home() {
                     setIsLoading(true);
                     try {
                       const text = await file.text();
-                      const geneStructureInfo = parseFileContent(
+                      const geneStructureInfo = await parseFileContentAsync(
                         text,
                         file.name,
                       );
