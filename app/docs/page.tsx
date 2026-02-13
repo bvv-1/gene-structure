@@ -257,37 +257,34 @@ export default function Docs() {
                 <Stack gap="md">
                   <Text fw={500}>Library Used:</Text>
                   <Code block p="md">
-                    gff-nostream
+                    @gmod/gff (util.parseFeature)
                   </Code>
                   <Text>
-                    The frontend uses the <Code>gff-nostream</Code> library to
-                    parse GFF3 files.
+                    The frontend uses the <Code>@gmod/gff</Code> library with
+                    streaming parsing for efficient memory usage on large files.
                   </Text>
 
                   <Text fw={500} mt="md">
                     Parser Processing Flow:
                   </Text>
                   <Code block p="md">
-                    {`// 1. Read the file
-const parseGff = async (file: File) => {
-  const fileContent = await file.text();
-  const result = parseStringSync(fileContent);
-  return result; // GFF3Feature[]
-}
+                    {`// Streaming parser for GFF3 files
+async function* parseGff3FileGenerator(file: File) {
+  const stream = file.stream();
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
 
-// 2. Extract mRNA features
-const getmRNAs = (gff: GFF3Feature[]) => {
-  // Traverse tree with depth-first search
-  // Collect features where type === "mrna"
-  // Eliminate duplicate IDs
-}
+  // Parse line by line
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-// 3. Build gene structure information
-const getGeneStructureInfo = (mRNAs) => {
-  // For each mRNA:
-  //   - Extract exon, CDS, UTR regions
-  //   - Store position info as Position type
-  //   - Convert to GeneStructureInfo type
+    for (const line of lines) {
+      const feature = gffUtil.parseFeature(line);
+      // Process mRNA, exon, CDS, UTR features
+    }
+  }
+
+  yield* yieldGeneStructures(mRNAs);
 }`}
                   </Code>
 

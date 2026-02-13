@@ -165,7 +165,8 @@ domains = [
 - TypeScript
 - Mantine v8（UIコンポーネント）
 - react-svg-pan-zoom（SVGビューアー）
-- gff-nostream（GFF3パーサー）
+- @gmod/gff（GFF3パーサー、ストリーミング対応）
+- @gmod/gtf（GTFパーサー）
 
 ### バックエンド
 - FastAPI

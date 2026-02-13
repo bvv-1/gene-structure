@@ -34,7 +34,7 @@ npm run fetch:openapi # FastAPIからOpenAPIスキーマをエクスポート
 
 ### フロントエンド (Next.js 16 + React 19)
 - `app/page.tsx`: メインUI（GFFアップロード、トランスクリプト選択、SVGプレビュー）
-- `app/utils/gff.ts`: GFF3パーサー（gff-nostreamを使用）、mRNA抽出、GeneStructureInfo生成
+- `app/utils/gff.ts`: GFF3パーサー（@gmod/gff util.parseFeatureを使用、ストリーミング対応）
 - `app/components/SvgViewer.tsx`: react-svg-pan-zoomによるSVG表示
 - `app/components/Layout.tsx`: 共通レイアウト
 - `app/api/`: Next.js APIルート
@@ -76,7 +76,8 @@ npm run fetch:openapi # FastAPIからOpenAPIスキーマをエクスポート
 ### フロントエンド
 - Mantine v8（UI）
 - react-svg-pan-zoom（SVGビューアー）
-- gff-nostream（GFF3パーサー）
+- @gmod/gff（GFF3パーサー、ストリーミング対応）
+- @gmod/gtf（GTFパーサー）
 - swr（データフェッチ）
 - fuse.js（検索）
 
