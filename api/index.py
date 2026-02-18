@@ -153,6 +153,14 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             gene.update_features_with_deletions(deletion_regions_as_tuples)
             print("Applied deletions:", request.deletion_regions)
 
+        # SNPsを追加
+        if request.snps:
+            gene.add_snps(request.snps)
+
+        # Insertionsを追加
+        if request.insertions:
+            gene.add_insertions(request.insertions)
+
         # SVGを生成（DrawSettingsから色を取得）
         draw_settings = request.draw_settings
         svg_content = draw_gene_structure(
@@ -198,6 +206,14 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
             if request.deletion_regions:
                 deletion_regions_as_tuples = [tuple(r) for r in request.deletion_regions]
                 gene.update_features_with_deletions(deletion_regions_as_tuples)
+
+            # SNPsを追加
+            if request.snps:
+                gene.add_snps(request.snps)
+
+            # Insertionsを追加
+            if request.insertions:
+                gene.add_insertions(request.insertions)
 
             genes.append(gene)
             labels.append(gene_info.transcript_id)

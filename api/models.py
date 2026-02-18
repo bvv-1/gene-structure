@@ -1,6 +1,9 @@
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 
+from .config import DOMAIN_COLOR_PALETTE
+from .color_utils import get_domain_color
+
 
 class GeneFeature:
     def __init__(self, seqid, start, end, feature_type, strand, attributes=None):
@@ -18,6 +21,17 @@ class GeneStructure:
         self.seqid = seqid
         self.strand = strand
         self.features = []
+        self.insertions = []
+        self.snps = []
+        self.domain_color_map = {}
+
+    def add_insertions(self, insertion_positions):
+        """Insertion位置のリストを設定"""
+        self.insertions = insertion_positions
+
+    def add_snps(self, snp_positions):
+        """SNP位置のリストを設定"""
+        self.snps = snp_positions
 
     def add_feature(self, feature: GeneFeature):
         self.features.append(feature)
@@ -45,6 +59,12 @@ class GeneStructure:
             end = domain['end']
             name = domain.get('name', '')
             color = domain.get('color', '')
+            # colorが未指定の場合、パレットから自動割り当て
+            if not color:
+                color = get_domain_color(name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
+            else:
+                # 指定された色もdomain_color_mapに記録
+                self.domain_color_map[name] = color
             domain_feature = GeneFeature(
                 self.seqid,
                 start,
@@ -153,6 +173,9 @@ class GeneStructure:
                 g_end = cds.end - offset_start
                 g_start = cds.end - offset_end
 
+            # ドメイン色を取得（まだ割り当てられていなければパレットから自動割り当て）
+            color = get_domain_color(domain_name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
+
             # ドメイン feature を追加
             domain_feature = GeneFeature(
                 seqid=self.seqid,
@@ -160,7 +183,7 @@ class GeneStructure:
                 end=g_end,
                 feature_type='domain',
                 strand=self.strand,
-                attributes={'name': domain_name}
+                attributes={'name': domain_name, 'color': color}
             )
             self.features.append(domain_feature)
 
@@ -223,6 +246,8 @@ class GeneStructureRequest(BaseModel):
     protein_domain_start: Optional[int] = None
     protein_domain_end: Optional[int] = None
     protein_domain_name: Optional[str] = None
+    snps: List[int] = []
+    insertions: List[int] = []
 
     @field_validator('deletion_regions')
     @classmethod
@@ -318,6 +343,8 @@ class MultiGeneStructureRequest(BaseModel):
     protein_domain_start: Optional[int] = None
     protein_domain_end: Optional[int] = None
     protein_domain_name: Optional[str] = None
+    snps: List[int] = []
+    insertions: List[int] = []
 
     @field_validator('gene_structures')
     @classmethod
