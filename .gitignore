@@ -42,3 +42,9 @@ venv
 .worktrees/
 # next-agents-md
 .next-docs/
+
+# GTF/GFF3 data files (keep directory with .gitkeep)
+app/utils/gtf/*
+!app/utils/gtf/.gitkeep
+app/utils/gff3/*
+!app/utils/gff3/.gitkeep

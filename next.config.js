@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Turbopack設定（Next.js 16+）
+  turbopack: {
+    resolveAlias: {
+      // クライアントサイドでfsモジュールを使用しないようにする（@gmod/gtf対応）
+      fs: { browser: "./app/utils/empty-module.js" },
+    },
+  },
   rewrites: async () => {
     return [
       {
