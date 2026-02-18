@@ -312,7 +312,7 @@ export default function Home() {
       });
 
       setSelectedFile(file);
-      const geneStructureInfo = await parseFileContentAsync(text, file.name);
+      const geneStructureInfo = parseFileContent(text, file.name);
       setGeneStructures(geneStructureInfo);
 
       notifications.show({
