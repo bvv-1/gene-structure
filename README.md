@@ -1,8 +1,14 @@
-# geneSTRUCTURE
+![img1](images/gs_plus_logo.png)
 
+![GitHub Release](https://img.shields.io/github/v/release/bvv-1/gene-structure)
+![GitHub Release Date](https://img.shields.io/github/release-date/bvv-1/gene-structure)
+![GitHub last commit](https://img.shields.io/github/last-commit/bvv-1/gene-structure)
+![GitHub License](https://img.shields.io/github/license/bvv-1/gene-structure)
 [![Generate API Types](https://github.com/bvv-1/gene-structure/actions/workflows/generate-api-types.yml/badge.svg)](https://github.com/bvv-1/gene-structure/actions/workflows/generate-api-types.yml)
 
-遺伝子構造を視覚化するためのWebアプリケーションとCLIツール
+# A high-quality visualization tool for gene structures
+## Citation
+Hashimoto, yamada and Izawa. in prepareing.
 
 https://gene-structure.vercel.app/
 
