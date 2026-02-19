@@ -76,6 +76,21 @@ def get_tick_params(range_size: int) -> tuple:
 # 描画関数
 # =====================
 
+def get_terminal_feature(features):
+    """
+    右端（最大 end）にある feature を返す。
+    優先順位: three_prime_UTR > CDS > exon
+    """
+    priority = ['three_prime_UTR', 'CDS', 'exon']
+
+    for ftype in priority:
+        candidates = [f for f in features if f.feature_type == ftype]
+        if candidates:
+            return max(candidates, key=lambda f: f.end)
+
+    return None
+
+
 def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0,
                         utr_color=None, exon_color=None, line_color=None, domain_color=None):
     # デフォルト色を設定
@@ -86,6 +101,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
     min_start = gene.to_relative()
     all_features = gene.get_sorted_features()
+    terminal_feature = get_terminal_feature(all_features)
     max_end = max(f.end / shrink_factor for f in all_features)
 
     shift = -min_start if min_start < 0 else 0
@@ -108,14 +124,21 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             continue
 
         if feat.feature_type == 'deletion':
+            # くの字型の折れ線
+            y_line = y_pos + height_feature // 2
+            mid_x = x_start + (x_end - x_start) / 2
+            offset = 10  # くの字の高さ
             dwg.add(
-                dwg.rect(
-                    insert=(x_start, y_pos),
-                    size=(width, height_feature),
+                dwg.polyline(
+                    points=[
+                        (x_start, y_line),
+                        (mid_x, y_line - offset),
+                        (x_end, y_line)
+                    ],
                     fill='none',
-                    stroke='red',
-                    stroke_dasharray="5,5",
-                    stroke_width=2
+                    stroke='black',
+                    stroke_width=1,
+                    stroke_dasharray="2,2"
                 )
             )
         elif feat.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR'):
@@ -129,15 +152,33 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
             outline_enabled = FEATURE_OUTLINE_ENABLED.get(feat.feature_type, True)
 
-            dwg.add(
-                dwg.rect(
-                    insert=(x_start, y_pos),
-                    size=(width, height_feature),
-                    fill=fill_color,
-                    stroke=stroke_color if outline_enabled else 'none',
-                    stroke_width=stroke_width
+            # Terminal Feature は矢印形状
+            if feat is terminal_feature:
+                tip = height_feature // 2
+                dwg.add(
+                    dwg.polygon(
+                        points=[
+                            (x_start, y_pos),
+                            (x_end - tip, y_pos),
+                            (x_end, y_pos + height_feature / 2),
+                            (x_end - tip, y_pos + height_feature),
+                            (x_start, y_pos + height_feature)
+                        ],
+                        fill=fill_color,
+                        stroke=stroke_color if outline_enabled else 'none',
+                        stroke_width=stroke_width
+                    )
                 )
-            )
+            else:
+                dwg.add(
+                    dwg.rect(
+                        insert=(x_start, y_pos),
+                        size=(width, height_feature),
+                        fill=fill_color,
+                        stroke=stroke_color if outline_enabled else 'none',
+                        stroke_width=stroke_width
+                    )
+                )
         elif feat.feature_type == 'intron':
             if x_start < x_end:
                 y_line = y_pos + height_feature // 2
@@ -150,45 +191,118 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                     )
                 )
 
+    # === Insertions ===
+    triangle_width = 8
+    triangle_height = 6
+    y_triangle = y_pos - 8  # exon の少し上
+
+    for ins_pos in getattr(gene, "insertions", []):
+        x = LEFT_MARGIN + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+        dwg.add(
+            dwg.polygon(
+                points=[
+                    (x - triangle_width / 2, y_triangle),
+                    (x + triangle_width / 2, y_triangle),
+                    (x, y_triangle + triangle_height)
+                ],
+                fill="black",
+                stroke="black",
+                stroke_width=1.5
+            )
+        )
+
+    # === SNPs ===
+    snp_extend_up = 8
+    snp_extend_down = 8
+    y_snp_top = y_pos - snp_extend_up
+    y_snp_bottom = y_pos + height_feature + snp_extend_down
+
+    for snp_pos in getattr(gene, "snps", []):
+        x = LEFT_MARGIN + (snp_pos / shrink_factor + shift / shrink_factor) * scale
+        dwg.add(
+            dwg.line(
+                start=(x, y_snp_top),
+                end=(x, y_snp_bottom),
+                stroke="black",
+                stroke_width=1.2
+            )
+        )
+
+    # ドメインを描画（上層）
     for feat in all_features:
         if feat.feature_type == 'domain':
             x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
             x_end = LEFT_MARGIN + (feat.end / shrink_factor + shift / shrink_factor) * scale
             width = x_end - x_start
 
+            # ドメイン色はattributesから取得
+            feat_domain_color = feat.attributes.get('color', domain_color)
+
             dwg.add(
                 dwg.rect(
                     insert=(x_start, y_pos),
                     size=(width, height_feature),
-                    fill=domain_color,
+                    fill=feat_domain_color,
                     stroke=FEATURE_OUTLINES.get('domain', 'black'),
                     stroke_width=FEATURE_OUTLINE_WIDTHS.get('domain', 1)
                 )
             )
 
-    # === 凡例 ===
+    # === 凡例の動的生成 ===
+    present_feature_types = set(f.feature_type for f in all_features)
+    legend_items = []
+
+    if 'CDS' in present_feature_types or 'exon' in present_feature_types:
+        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    if 'five_prime_UTR' in present_feature_types:
+        legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
+    if 'three_prime_UTR' in present_feature_types:
+        legend_items.append(('three_prime_UTR', "3' UTR", utr_color))
+    if 'intron' in present_feature_types:
+        legend_items.append(('intron', 'Intron', line_color))
+    if 'deletion' in present_feature_types:
+        legend_items.append(('deletion', 'Deletion', None))
+    if getattr(gene, "insertions", []):
+        legend_items.append(('insertion', 'Insertion', None))
+    if getattr(gene, "snps", []):
+        legend_items.append(('snp', 'SNP', None))
+    # ドメインは名前ごとに個別表示
+    for domain_name, color in getattr(gene, 'domain_color_map', {}).items():
+        legend_items.append(('domain', domain_name, color))
+
     legend_x = max_x_coord + 100
     legend_y = 30
     box_size = 12
     spacing = 20
-    legend_items = [
-        ('domain', 'Domain', domain_color),
-        ('CDS', 'Exon/CDS', exon_color),
-        ('five_prime_UTR', "5' UTR", utr_color),
-        ('three_prime_UTR', "3' UTR", utr_color),
-        ('intron', 'Intron', line_color),
-        ('deletion', 'Deletion', None)
-    ]
+
     for i, (feat_key, label, color) in enumerate(legend_items):
         y_legend = legend_y + i * spacing
         if feat_key == 'deletion':
-            dwg.add(dwg.rect(
-                insert=(legend_x, y_legend),
-                size=(box_size, box_size),
+            # くの字型
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polyline(
+                points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)],
                 fill='none',
-                stroke='red',
-                stroke_dasharray="5,5",
-                stroke_width=2
+                stroke='black',
+                stroke_width=1.5,
+                stroke_dasharray="2,2"
+            ))
+        elif feat_key == 'insertion':
+            # 逆三角形
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polygon(
+                points=[(legend_x, y_mid - 4), (legend_x + box_size, y_mid - 4), (legend_x + box_size // 2, y_mid + 4)],
+                fill='black',
+                stroke='black',
+                stroke_width=1.5
+            ))
+        elif feat_key == 'snp':
+            # 縦線
+            dwg.add(dwg.line(
+                start=(legend_x + box_size // 2, y_legend),
+                end=(legend_x + box_size // 2, y_legend + box_size),
+                stroke='black',
+                stroke_width=1.2
             ))
         elif feat_key == 'intron':
             y_line = y_legend + box_size // 2
@@ -294,6 +408,7 @@ def draw_multiple_gene_structures(
     for idx, (gene, label) in enumerate(zip(genes, labels)):
         all_features, shift, max_end = gene_data[idx]
         y_pos = top_margin + idx * (gene_height + gene_spacing)
+        terminal_feature = get_terminal_feature(all_features)
 
         # ラベルを描画
         if show_labels:
@@ -315,14 +430,21 @@ def draw_multiple_gene_structures(
                 continue
 
             if feat.feature_type == 'deletion':
+                # くの字型の折れ線
+                y_line = y_pos + height_feature // 2
+                mid_x = x_start + (x_end - x_start) / 2
+                offset = 10
                 dwg.add(
-                    dwg.rect(
-                        insert=(x_start, y_pos),
-                        size=(width, height_feature),
+                    dwg.polyline(
+                        points=[
+                            (x_start, y_line),
+                            (mid_x, y_line - offset),
+                            (x_end, y_line)
+                        ],
                         fill='none',
-                        stroke='red',
-                        stroke_dasharray="5,5",
-                        stroke_width=2
+                        stroke='black',
+                        stroke_width=1,
+                        stroke_dasharray="2,2"
                     )
                 )
             elif feat.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR'):
@@ -335,15 +457,33 @@ def draw_multiple_gene_structures(
                 stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
                 outline_enabled = FEATURE_OUTLINE_ENABLED.get(feat.feature_type, True)
 
-                dwg.add(
-                    dwg.rect(
-                        insert=(x_start, y_pos),
-                        size=(width, height_feature),
-                        fill=fill_color,
-                        stroke=stroke_color if outline_enabled else 'none',
-                        stroke_width=stroke_width
+                # Terminal Feature は矢印形状
+                if feat is terminal_feature:
+                    tip = height_feature // 2
+                    dwg.add(
+                        dwg.polygon(
+                            points=[
+                                (x_start, y_pos),
+                                (x_end - tip, y_pos),
+                                (x_end, y_pos + height_feature / 2),
+                                (x_end - tip, y_pos + height_feature),
+                                (x_start, y_pos + height_feature)
+                            ],
+                            fill=fill_color,
+                            stroke=stroke_color if outline_enabled else 'none',
+                            stroke_width=stroke_width
+                        )
                     )
-                )
+                else:
+                    dwg.add(
+                        dwg.rect(
+                            insert=(x_start, y_pos),
+                            size=(width, height_feature),
+                            fill=fill_color,
+                            stroke=stroke_color if outline_enabled else 'none',
+                            stroke_width=stroke_width
+                        )
+                    )
             elif feat.feature_type == 'intron':
                 if x_start < x_end:
                     y_line = y_pos + height_feature // 2
@@ -356,6 +496,43 @@ def draw_multiple_gene_structures(
                         )
                     )
 
+        # === Insertions ===
+        triangle_width = 8
+        triangle_height = 6
+        y_triangle = y_pos - 8
+
+        for ins_pos in getattr(gene, "insertions", []):
+            x = LEFT_MARGIN + label_width + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+            dwg.add(
+                dwg.polygon(
+                    points=[
+                        (x - triangle_width / 2, y_triangle),
+                        (x + triangle_width / 2, y_triangle),
+                        (x, y_triangle + triangle_height)
+                    ],
+                    fill="black",
+                    stroke="black",
+                    stroke_width=1.5
+                )
+            )
+
+        # === SNPs ===
+        snp_extend_up = 8
+        snp_extend_down = 8
+        y_snp_top = y_pos - snp_extend_up
+        y_snp_bottom = y_pos + height_feature + snp_extend_down
+
+        for snp_pos in getattr(gene, "snps", []):
+            x = LEFT_MARGIN + label_width + (snp_pos / shrink_factor + shift / shrink_factor) * scale
+            dwg.add(
+                dwg.line(
+                    start=(x, y_snp_top),
+                    end=(x, y_snp_bottom),
+                    stroke="black",
+                    stroke_width=1.2
+                )
+            )
+
         # ドメインを描画（上層）
         for feat in all_features:
             if feat.feature_type == 'domain':
@@ -363,39 +540,87 @@ def draw_multiple_gene_structures(
                 x_end = LEFT_MARGIN + label_width + (feat.end / shrink_factor + shift / shrink_factor) * scale
                 width = x_end - x_start
 
+                # ドメイン色はattributesから取得
+                feat_domain_color = feat.attributes.get('color', domain_color)
+
                 dwg.add(
                     dwg.rect(
                         insert=(x_start, y_pos),
                         size=(width, height_feature),
-                        fill=domain_color,
+                        fill=feat_domain_color,
                         stroke=FEATURE_OUTLINES.get('domain', 'black'),
                         stroke_width=FEATURE_OUTLINE_WIDTHS.get('domain', 1)
                     )
                 )
 
-    # === 凡例（右上に1つだけ配置） ===
+    # === 凡例の動的生成 ===
+    # 全遺伝子のfeature typeを収集
+    all_feature_types = set()
+    all_domain_colors = {}
+    has_insertions = False
+    has_snps = False
+    for gene in genes:
+        for f in gene.get_sorted_features():
+            all_feature_types.add(f.feature_type)
+        all_domain_colors.update(getattr(gene, 'domain_color_map', {}))
+        if getattr(gene, "insertions", []):
+            has_insertions = True
+        if getattr(gene, "snps", []):
+            has_snps = True
+
+    # 凡例アイテムを動的に構築
+    legend_items = []
+    if 'CDS' in all_feature_types or 'exon' in all_feature_types:
+        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    if 'five_prime_UTR' in all_feature_types:
+        legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
+    if 'three_prime_UTR' in all_feature_types:
+        legend_items.append(('three_prime_UTR', "3' UTR", utr_color))
+    if 'intron' in all_feature_types:
+        legend_items.append(('intron', 'Intron', line_color))
+    if 'deletion' in all_feature_types:
+        legend_items.append(('deletion', 'Deletion', None))
+    if has_insertions:
+        legend_items.append(('insertion', 'Insertion', None))
+    if has_snps:
+        legend_items.append(('snp', 'SNP', None))
+    # ドメインは名前ごとに個別表示
+    for domain_name, color in all_domain_colors.items():
+        legend_items.append(('domain', domain_name, color))
+
     legend_x = global_max_x + 50
     legend_y = 30
     box_size = 12
     spacing = 20
-    legend_items = [
-        ('domain', 'Domain', domain_color),
-        ('CDS', 'Exon/CDS', exon_color),
-        ('five_prime_UTR', "5' UTR", utr_color),
-        ('three_prime_UTR', "3' UTR", utr_color),
-        ('intron', 'Intron', line_color),
-        ('deletion', 'Deletion', None)
-    ]
+
     for i, (feat_key, label_text, color) in enumerate(legend_items):
         y_legend = legend_y + i * spacing
         if feat_key == 'deletion':
-            dwg.add(dwg.rect(
-                insert=(legend_x, y_legend),
-                size=(box_size, box_size),
+            # くの字型
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polyline(
+                points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)],
                 fill='none',
-                stroke='red',
-                stroke_dasharray="5,5",
-                stroke_width=2
+                stroke='black',
+                stroke_width=1.5,
+                stroke_dasharray="2,2"
+            ))
+        elif feat_key == 'insertion':
+            # 逆三角形
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polygon(
+                points=[(legend_x, y_mid - 4), (legend_x + box_size, y_mid - 4), (legend_x + box_size // 2, y_mid + 4)],
+                fill='black',
+                stroke='black',
+                stroke_width=1.5
+            ))
+        elif feat_key == 'snp':
+            # 縦線
+            dwg.add(dwg.line(
+                start=(legend_x + box_size // 2, y_legend),
+                end=(legend_x + box_size // 2, y_legend + box_size),
+                stroke='black',
+                stroke_width=1.2
             ))
         elif feat_key == 'intron':
             y_line = y_legend + box_size // 2
@@ -586,6 +811,7 @@ def draw_region_gene_structures(
         label = gene_info['label']
         all_features = gene.get_sorted_features()
         y_pos = top_margin + track_idx * (track_height + gene_spacing)
+        terminal_feature = get_terminal_feature(all_features)
 
         # 遺伝子の中心X座標を計算（ラベル配置用）
         gene_center_x = None
@@ -605,14 +831,21 @@ def draw_region_gene_structures(
                 continue
 
             if feat.feature_type == 'deletion':
+                # くの字型の折れ線
+                y_line = y_pos + height_feature // 2
+                mid_x = x_start + (x_end - x_start) / 2
+                offset = 10
                 dwg.add(
-                    dwg.rect(
-                        insert=(x_start, y_pos),
-                        size=(width, height_feature),
+                    dwg.polyline(
+                        points=[
+                            (x_start, y_line),
+                            (mid_x, y_line - offset),
+                            (x_end, y_line)
+                        ],
                         fill='none',
-                        stroke='red',
-                        stroke_dasharray="5,5",
-                        stroke_width=2
+                        stroke='black',
+                        stroke_width=1,
+                        stroke_dasharray="2,2"
                     )
                 )
             elif feat.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR'):
@@ -625,15 +858,33 @@ def draw_region_gene_structures(
                 stroke_width = FEATURE_OUTLINE_WIDTHS.get(feat.feature_type, 1)
                 outline_enabled = FEATURE_OUTLINE_ENABLED.get(feat.feature_type, True)
 
-                dwg.add(
-                    dwg.rect(
-                        insert=(x_start, y_pos),
-                        size=(width, height_feature),
-                        fill=fill_color,
-                        stroke=stroke_color if outline_enabled else 'none',
-                        stroke_width=stroke_width
+                # Terminal Feature は矢印形状
+                if feat is terminal_feature:
+                    tip = height_feature // 2
+                    dwg.add(
+                        dwg.polygon(
+                            points=[
+                                (x_start, y_pos),
+                                (x_end - tip, y_pos),
+                                (x_end, y_pos + height_feature / 2),
+                                (x_end - tip, y_pos + height_feature),
+                                (x_start, y_pos + height_feature)
+                            ],
+                            fill=fill_color,
+                            stroke=stroke_color if outline_enabled else 'none',
+                            stroke_width=stroke_width
+                        )
                     )
-                )
+                else:
+                    dwg.add(
+                        dwg.rect(
+                            insert=(x_start, y_pos),
+                            size=(width, height_feature),
+                            fill=fill_color,
+                            stroke=stroke_color if outline_enabled else 'none',
+                            stroke_width=stroke_width
+                        )
+                    )
             elif feat.feature_type == 'intron':
                 if x_start < x_end:
                     y_line = y_pos + height_feature // 2
@@ -646,6 +897,43 @@ def draw_region_gene_structures(
                         )
                     )
 
+        # === Insertions ===
+        triangle_width = 8
+        triangle_height = 6
+        y_triangle = y_pos - 8
+
+        for ins_pos in getattr(gene, "insertions", []):
+            x = LEFT_MARGIN + (ins_pos - draw_start) / shrink_factor * scale
+            dwg.add(
+                dwg.polygon(
+                    points=[
+                        (x - triangle_width / 2, y_triangle),
+                        (x + triangle_width / 2, y_triangle),
+                        (x, y_triangle + triangle_height)
+                    ],
+                    fill="black",
+                    stroke="black",
+                    stroke_width=1.5
+                )
+            )
+
+        # === SNPs ===
+        snp_extend_up = 8
+        snp_extend_down = 8
+        y_snp_top = y_pos - snp_extend_up
+        y_snp_bottom = y_pos + height_feature + snp_extend_down
+
+        for snp_pos in getattr(gene, "snps", []):
+            x = LEFT_MARGIN + (snp_pos - draw_start) / shrink_factor * scale
+            dwg.add(
+                dwg.line(
+                    start=(x, y_snp_top),
+                    end=(x, y_snp_bottom),
+                    stroke="black",
+                    stroke_width=1.2
+                )
+            )
+
         # ドメインを描画（上層）
         for feat in all_features:
             if feat.feature_type == 'domain':
@@ -653,11 +941,14 @@ def draw_region_gene_structures(
                 x_end = LEFT_MARGIN + (feat.end - draw_start) / shrink_factor * scale
                 width = x_end - x_start
 
+                # ドメイン色はattributesから取得
+                feat_domain_color = feat.attributes.get('color', domain_color)
+
                 dwg.add(
                     dwg.rect(
                         insert=(x_start, y_pos),
                         size=(width, height_feature),
-                        fill=domain_color,
+                        fill=feat_domain_color,
                         stroke=FEATURE_OUTLINES.get('domain', 'black'),
                         stroke_width=FEATURE_OUTLINE_WIDTHS.get('domain', 1)
                     )
@@ -674,29 +965,74 @@ def draw_region_gene_structures(
                 text_anchor='middle'
             ))
 
-    # === 凡例（右上に1つだけ配置） ===
+    # === 凡例の動的生成 ===
+    # 全遺伝子のfeature typeを収集
+    all_feature_types = set()
+    all_domain_colors = {}
+    has_insertions = False
+    has_snps = False
+    for gene in genes:
+        for f in gene.get_sorted_features():
+            all_feature_types.add(f.feature_type)
+        all_domain_colors.update(getattr(gene, 'domain_color_map', {}))
+        if getattr(gene, "insertions", []):
+            has_insertions = True
+        if getattr(gene, "snps", []):
+            has_snps = True
+
+    # 凡例アイテムを動的に構築
+    legend_items = []
+    if 'CDS' in all_feature_types or 'exon' in all_feature_types:
+        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    if 'five_prime_UTR' in all_feature_types:
+        legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
+    if 'three_prime_UTR' in all_feature_types:
+        legend_items.append(('three_prime_UTR', "3' UTR", utr_color))
+    if 'intron' in all_feature_types:
+        legend_items.append(('intron', 'Intron', line_color))
+    if 'deletion' in all_feature_types:
+        legend_items.append(('deletion', 'Deletion', None))
+    if has_insertions:
+        legend_items.append(('insertion', 'Insertion', None))
+    if has_snps:
+        legend_items.append(('snp', 'SNP', None))
+    # ドメインは名前ごとに個別表示
+    for domain_name, color in all_domain_colors.items():
+        legend_items.append(('domain', domain_name, color))
+
     legend_x = LEFT_MARGIN + axis_width + 50
     legend_y = 30
     box_size = 12
     spacing = 20
-    legend_items = [
-        ('domain', 'Domain', domain_color),
-        ('CDS', 'Exon/CDS', exon_color),
-        ('five_prime_UTR', "5' UTR", utr_color),
-        ('three_prime_UTR', "3' UTR", utr_color),
-        ('intron', 'Intron', line_color),
-        ('deletion', 'Deletion', None)
-    ]
+
     for i, (feat_key, label_text, color) in enumerate(legend_items):
         y_legend = legend_y + i * spacing
         if feat_key == 'deletion':
-            dwg.add(dwg.rect(
-                insert=(legend_x, y_legend),
-                size=(box_size, box_size),
+            # くの字型
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polyline(
+                points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)],
                 fill='none',
-                stroke='red',
-                stroke_dasharray="5,5",
-                stroke_width=2
+                stroke='black',
+                stroke_width=1.5,
+                stroke_dasharray="2,2"
+            ))
+        elif feat_key == 'insertion':
+            # 逆三角形
+            y_mid = y_legend + box_size // 2
+            dwg.add(dwg.polygon(
+                points=[(legend_x, y_mid - 4), (legend_x + box_size, y_mid - 4), (legend_x + box_size // 2, y_mid + 4)],
+                fill='black',
+                stroke='black',
+                stroke_width=1.5
+            ))
+        elif feat_key == 'snp':
+            # 縦線
+            dwg.add(dwg.line(
+                start=(legend_x + box_size // 2, y_legend),
+                end=(legend_x + box_size // 2, y_legend + box_size),
+                stroke='black',
+                stroke_width=1.2
             ))
         elif feat_key == 'intron':
             y_line = y_legend + box_size // 2
