@@ -409,6 +409,22 @@
               }
             ],
             "title": "Protein Domain Name"
+          },
+          "snps": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Snps",
+            "default": []
+          },
+          "insertions": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Insertions",
+            "default": []
           }
         },
         "type": "object",
@@ -509,6 +525,22 @@
               }
             ],
             "title": "Protein Domain Name"
+          },
+          "snps": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Snps",
+            "default": []
+          },
+          "insertions": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Insertions",
+            "default": []
           }
         },
         "type": "object",

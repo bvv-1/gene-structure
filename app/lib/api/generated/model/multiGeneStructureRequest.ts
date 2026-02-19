@@ -22,4 +22,6 @@ export interface MultiGeneStructureRequest {
   protein_domain_start?: number | null;
   protein_domain_end?: number | null;
   protein_domain_name?: string | null;
+  snps?: number[];
+  insertions?: number[];
 }
