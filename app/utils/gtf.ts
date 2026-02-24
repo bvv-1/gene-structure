@@ -226,10 +226,21 @@ export async function* parseGtfFileGenerator(
 
 // ブラウザ用：Fileオブジェクトから直接GTFをパース（常にストリーミング）
 export async function parseGtfFile(file: File): Promise<GeneStructureInfo[]> {
+  if (file.size === 0) {
+    throw new Error("ファイルが空です。GTF形式のファイルを選択してください。");
+  }
+
   const results: GeneStructureInfo[] = [];
   for await (const info of parseGtfFileGenerator(file)) {
     results.push(info);
   }
+
+  if (results.length === 0) {
+    throw new Error(
+      "mRNA/トランスクリプトが見つかりませんでした。ファイルにmRNAフィーチャーが含まれていることを確認してください。",
+    );
+  }
+
   return results;
 }
 
@@ -238,12 +249,21 @@ export async function parseGtfFile(file: File): Promise<GeneStructureInfo[]> {
 export async function parseFile(file: File): Promise<GeneStructureInfo[]> {
   const format = detectFileFormat(file.name);
 
-  if (format === "gtf") {
-    return parseGtfFile(file);
-  }
+  try {
+    if (format === "gtf") {
+      return await parseGtfFile(file);
+    }
 
-  // GFF3: ストリーミング処理を使用
-  return parseGff3File(file);
+    // GFF3: ストリーミング処理を使用
+    return await parseGff3File(file);
+  } catch (e) {
+    if (e instanceof Error) {
+      throw e;
+    }
+    throw new Error(
+      "ファイルの解析中に予期しないエラーが発生しました。ファイルがGFF3またはGTF形式であることを確認してください。",
+    );
+  }
 }
 
 export function parseGtfString(content: string): GeneStructureInfo[] {

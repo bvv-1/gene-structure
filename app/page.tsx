@@ -661,6 +661,15 @@ export default function Home() {
                     }
                   }
                 }}
+                onReject={() => {
+                  notifications.show({
+                    title: "ファイル形式エラー",
+                    message:
+                      "サポートされていないファイル形式です。GFF3またはGTF形式のファイル（.gff, .gff3, .gtf）を選択してください。",
+                    color: "red",
+                    autoClose: 5000,
+                  });
+                }}
                 accept={{
                   "text/plain": [".gff", ".gff3", ".gtf"],
                 }}

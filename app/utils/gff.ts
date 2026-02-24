@@ -221,10 +221,21 @@ export async function* parseGff3FileGenerator(
  * ブラウザ用: FileオブジェクトからGFF3をパース（配列で返す）
  */
 export async function parseGff3File(file: File): Promise<GeneStructureInfo[]> {
+  if (file.size === 0) {
+    throw new Error("ファイルが空です。GFF3形式のファイルを選択してください。");
+  }
+
   const results: GeneStructureInfo[] = [];
   for await (const info of parseGff3FileGenerator(file)) {
     results.push(info);
   }
+
+  if (results.length === 0) {
+    throw new Error(
+      "mRNA/トランスクリプトが見つかりませんでした。ファイルにmRNAフィーチャーが含まれていることを確認してください。",
+    );
+  }
+
   return results;
 }
 
