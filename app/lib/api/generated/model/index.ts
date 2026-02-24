@@ -14,5 +14,6 @@ export * from './hTTPValidationError';
 export * from './multiGeneStructureRequest';
 export * from './multiGeneStructureRequestDomainsItem';
 export * from './position';
+export * from './proteinDomain';
 export * from './regionGeneStructureRequest';
 export * from './validationError';

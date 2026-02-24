@@ -65,9 +65,7 @@ type MultiGeneStructureRequest = {
   deletion_regions?: number[][];
   insertions?: number[];
   domains?: { start: number; end: number; name: string }[];
-  protein_domain_start?: number;
-  protein_domain_end?: number;
-  protein_domain_name?: string;
+  protein_domains?: { start: number; end: number; name: string }[];
 };
 
 type RegionGeneStructureRequest = {
@@ -292,13 +290,13 @@ export default function Home() {
   const [insertionPositions, setInsertionPositions] = useState<
     Array<number | undefined>
   >([]);
-  const [proteinDomainStart, setProteinDomainStart] = useState<
-    number | undefined
-  >();
-  const [proteinDomainEnd, setProteinDomainEnd] = useState<
-    number | undefined
-  >();
-  const [proteinDomainName, setProteinDomainName] = useState<string>("");
+  const [proteinDomains, setProteinDomains] = useState<
+    Array<{
+      start: number | undefined;
+      end: number | undefined;
+      name: string;
+    }>
+  >([]);
 
   // Handle preset GFF selection
   const handlePresetGffSelect = async (value: string | null) => {
@@ -395,11 +393,20 @@ export default function Home() {
       requestData.insertions = validInsertionPositions;
     }
 
-    // Add protein domain if specified
-    if (proteinDomainStart && proteinDomainEnd && proteinDomainName) {
-      requestData.protein_domain_start = proteinDomainStart;
-      requestData.protein_domain_end = proteinDomainEnd;
-      requestData.protein_domain_name = proteinDomainName;
+    // Add protein domains if any (filter out invalid domains)
+    const validProteinDomains = proteinDomains
+      .filter(
+        (domain): domain is { start: number; end: number; name: string } =>
+          domain.start !== undefined &&
+          domain.end !== undefined &&
+          domain.start > 0 &&
+          domain.end > 0 &&
+          domain.name.trim() !== "",
+      )
+      .map(({ start, end, name }) => ({ start, end, name }));
+
+    if (validProteinDomains.length > 0) {
+      requestData.protein_domains = validProteinDomains;
     }
 
     return requestData;
@@ -921,46 +928,82 @@ export default function Home() {
                   <Stack gap="md">
                     <Stack>
                       <Text size="sm" fw={500} mb="xs">
-                        Protein Domain (amino acid coordinates):
+                        Protein Domains (amino acid coordinates):
                       </Text>
-                      <Grid>
-                        <Grid.Col span={4}>
-                          <NumberInput
-                            label="Start"
-                            placeholder="1"
-                            value={proteinDomainStart}
-                            onChange={(val) =>
-                              setProteinDomainStart(
-                                val === "" ? undefined : Number(val),
-                              )
-                            }
-                            min={1}
-                          />
-                        </Grid.Col>
-                        <Grid.Col span={4}>
-                          <NumberInput
-                            label="End"
-                            placeholder="100"
-                            value={proteinDomainEnd}
-                            onChange={(val) =>
-                              setProteinDomainEnd(
-                                val === "" ? undefined : Number(val),
-                              )
-                            }
-                            min={1}
-                          />
-                        </Grid.Col>
-                        <Grid.Col span={4}>
-                          <TextInput
-                            label="Name"
-                            placeholder="Domain name"
-                            value={proteinDomainName}
-                            onChange={(e) =>
-                              setProteinDomainName(e.currentTarget.value)
-                            }
-                          />
-                        </Grid.Col>
-                      </Grid>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        Enter amino acid positions (e.g., start: 1, end: 100)
+                      </Text>
+                      <Stack gap="xs">
+                        {proteinDomains.map((domain, idx) => (
+                          <Group
+                            key={`protein-domain-${idx}-${domain.start}-${domain.end}`}
+                            gap="xs"
+                            align="flex-end"
+                          >
+                            <NumberInput
+                              label={idx === 0 ? "Start" : undefined}
+                              placeholder="e.g., 1"
+                              value={domain.start}
+                              onChange={(val) => {
+                                const newDomains = [...proteinDomains];
+                                newDomains[idx].start =
+                                  val === "" ? undefined : Number(val);
+                                setProteinDomains(newDomains);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <NumberInput
+                              label={idx === 0 ? "End" : undefined}
+                              placeholder="e.g., 100"
+                              value={domain.end}
+                              onChange={(val) => {
+                                const newDomains = [...proteinDomains];
+                                newDomains[idx].end =
+                                  val === "" ? undefined : Number(val);
+                                setProteinDomains(newDomains);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <TextInput
+                              label={idx === 0 ? "Name" : undefined}
+                              placeholder="Domain name"
+                              value={domain.name}
+                              onChange={(e) => {
+                                const newDomains = [...proteinDomains];
+                                newDomains[idx].name = e.currentTarget.value;
+                                setProteinDomains(newDomains);
+                              }}
+                              style={{ flex: 1 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setProteinDomains(
+                                  proteinDomains.filter((_, i) => i !== idx),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setProteinDomains([
+                              ...proteinDomains,
+                              { start: undefined, end: undefined, name: "" },
+                            ]);
+                          }}
+                        >
+                          Add Protein Domain
+                        </Button>
+                      </Stack>
                     </Stack>
 
                     <Stack>

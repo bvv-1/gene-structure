@@ -377,38 +377,13 @@
             "title": "Domains",
             "default": []
           },
-          "protein_domain_start": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain Start"
-          },
-          "protein_domain_end": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain End"
-          },
-          "protein_domain_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain Name"
+          "protein_domains": {
+            "items": {
+              "$ref": "#/components/schemas/ProteinDomain"
+            },
+            "type": "array",
+            "title": "Protein Domains",
+            "default": []
           },
           "snps": {
             "items": {
@@ -493,38 +468,13 @@
             "title": "Domains",
             "default": []
           },
-          "protein_domain_start": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain Start"
-          },
-          "protein_domain_end": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain End"
-          },
-          "protein_domain_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protein Domain Name"
+          "protein_domains": {
+            "items": {
+              "$ref": "#/components/schemas/ProteinDomain"
+            },
+            "type": "array",
+            "title": "Protein Domains",
+            "default": []
           },
           "snps": {
             "items": {
@@ -568,6 +518,30 @@
           "end"
         ],
         "title": "Position"
+      },
+      "ProteinDomain": {
+        "properties": {
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "name"
+        ],
+        "title": "ProteinDomain",
+        "description": "\u30a2\u30df\u30ce\u9178\u5ea7\u6a19\u3067\u6307\u5b9a\u3059\u308b\u30d7\u30ed\u30c6\u30a4\u30f3\u30c9\u30e1\u30a4\u30f3"
       },
       "RegionGeneStructureRequest": {
         "properties": {

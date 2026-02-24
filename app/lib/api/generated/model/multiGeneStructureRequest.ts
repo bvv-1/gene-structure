@@ -7,6 +7,7 @@
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { MultiGeneStructureRequestDomainsItem } from './multiGeneStructureRequestDomainsItem';
+import type { ProteinDomain } from './proteinDomain';
 
 /**
  * 複数遺伝子のSVG生成リクエスト
@@ -19,9 +20,7 @@ export interface MultiGeneStructureRequest {
   label_spacing?: number;
   deletion_regions?: number[][];
   domains?: MultiGeneStructureRequestDomainsItem[];
-  protein_domain_start?: number | null;
-  protein_domain_end?: number | null;
-  protein_domain_name?: string | null;
+  protein_domains?: ProteinDomain[];
   snps?: number[];
   insertions?: number[];
 }
