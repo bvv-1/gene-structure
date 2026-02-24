@@ -39,6 +39,59 @@ class GeneStructure:
     def get_sorted_features(self):
         return sorted(self.features, key=lambda f: f.start, reverse=False)
 
+    def normalize_features(self):
+        """
+        Feature の正規化処理（イントロン追加を含む）
+        1. exon + CDS + UTR → exon を削除
+        2. exon + CDS (UTRなし) → exon と CDS の差分から UTR を計算し、exon を削除
+        3. exon のみ → そのまま維持
+        4. イントロンを追加
+        """
+        exons = [f for f in self.features if f.feature_type == 'exon']
+        cds_list = [f for f in self.features if f.feature_type == 'CDS']
+        utrs = [f for f in self.features if f.feature_type in ('five_prime_UTR', 'three_prime_UTR')]
+
+        # Case 1 & 2: CDS がある場合
+        if cds_list:
+            # UTR がない場合、exon と CDS の差分から UTR を計算
+            if not utrs and exons:
+                self._compute_utrs_from_exon_cds(exons, cds_list)
+
+            # exon を削除（CDS + UTR で表現するため）
+            self.features = [f for f in self.features if f.feature_type != 'exon']
+
+        # Case 3: exon のみの場合はそのまま
+
+        # イントロンを追加
+        self.add_introns()
+
+    def _compute_utrs_from_exon_cds(self, exons, cds_list):
+        """
+        exon と CDS の差分から UTR を計算して追加
+        """
+        # CDS の全体範囲を取得
+        cds_start = min(c.start for c in cds_list)
+        cds_end = max(c.end for c in cds_list)
+
+        for exon in exons:
+            # 5' UTR: exon の開始から CDS の開始まで
+            if exon.start < cds_start and exon.end >= cds_start:
+                utr_end = min(exon.end, cds_start - 1)
+                if exon.start <= utr_end:
+                    self.features.append(GeneFeature(
+                        self.seqid, exon.start, utr_end,
+                        'five_prime_UTR', self.strand, {}
+                    ))
+
+            # 3' UTR: CDS の終了から exon の終了まで
+            if exon.end > cds_end and exon.start <= cds_end:
+                utr_start = max(exon.start, cds_end + 1)
+                if utr_start <= exon.end:
+                    self.features.append(GeneFeature(
+                        self.seqid, utr_start, exon.end,
+                        'three_prime_UTR', self.strand, {}
+                    ))
+
     def add_introns(self):
         # exon / CDS / UTR をまとめて処理
         exon_like_list = sorted(

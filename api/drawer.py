@@ -252,8 +252,11 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     present_feature_types = set(f.feature_type for f in all_features)
     legend_items = []
 
-    if 'CDS' in present_feature_types or 'exon' in present_feature_types:
-        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    # CDS がある場合は「CDS」、exon のみの場合は「Exon」と表示
+    if 'CDS' in present_feature_types:
+        legend_items.append(('CDS', 'CDS', exon_color))
+    elif 'exon' in present_feature_types:
+        legend_items.append(('exon', 'Exon', exon_color))
     if 'five_prime_UTR' in present_feature_types:
         legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
     if 'three_prime_UTR' in present_feature_types:
@@ -570,8 +573,11 @@ def draw_multiple_gene_structures(
 
     # 凡例アイテムを動的に構築
     legend_items = []
-    if 'CDS' in all_feature_types or 'exon' in all_feature_types:
-        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    # CDS がある場合は「CDS」、exon のみの場合は「Exon」と表示
+    if 'CDS' in all_feature_types:
+        legend_items.append(('CDS', 'CDS', exon_color))
+    elif 'exon' in all_feature_types:
+        legend_items.append(('exon', 'Exon', exon_color))
     if 'five_prime_UTR' in all_feature_types:
         legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
     if 'three_prime_UTR' in all_feature_types:
@@ -982,8 +988,11 @@ def draw_region_gene_structures(
 
     # 凡例アイテムを動的に構築
     legend_items = []
-    if 'CDS' in all_feature_types or 'exon' in all_feature_types:
-        legend_items.append(('CDS', 'Exon/CDS', exon_color))
+    # CDS がある場合は「CDS」、exon のみの場合は「Exon」と表示
+    if 'CDS' in all_feature_types:
+        legend_items.append(('CDS', 'CDS', exon_color))
+    elif 'exon' in all_feature_types:
+        legend_items.append(('exon', 'Exon', exon_color))
     if 'five_prime_UTR' in all_feature_types:
         legend_items.append(('five_prime_UTR', "5' UTR", utr_color))
     if 'three_prime_UTR' in all_feature_types:

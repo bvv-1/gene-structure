@@ -105,8 +105,8 @@ def build_gene_structure(gene_info: GeneStructureInfo) -> GeneStructure:
             )
         gene.add_feature(feature)
 
-    # イントロンを追加
-    gene.add_introns()
+    # 正規化（exon + CDS/UTR の重複を解消 + イントロン追加）
+    gene.normalize_features()
 
     # 相対座標に変換
     gene.to_relative()
@@ -179,8 +179,8 @@ def build_gene_structure_no_relative(gene_info: GeneStructureInfo) -> GeneStruct
         )
         gene.add_feature(feature)
 
-    # イントロンを追加
-    gene.add_introns()
+    # 正規化（exon + CDS/UTR の重複を解消 + イントロン追加）
+    gene.normalize_features()
 
     # 注意: to_relative() は呼ばない
 
