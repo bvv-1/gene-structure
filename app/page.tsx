@@ -63,6 +63,7 @@ type MultiGeneStructureRequest = {
   gene_spacing: number;
   label_spacing: number;
   deletion_regions?: number[][];
+  insertions?: number[];
   domains?: { start: number; end: number; name: string }[];
   protein_domain_start?: number;
   protein_domain_end?: number;
@@ -284,9 +285,12 @@ export default function Home() {
   const canProceedFromRegion =
     filteredByRegion.length > 0 && filteredByRegion.length <= 30;
 
-  // Deletion and domain settings
+  // Deletion, insertion, and domain settings
   const [deletionRegions, setDeletionRegions] = useState<
     Array<[number | undefined, number | undefined]>
+  >([]);
+  const [insertionPositions, setInsertionPositions] = useState<
+    Array<number | undefined>
   >([]);
   const [proteinDomainStart, setProteinDomainStart] = useState<
     number | undefined
@@ -380,6 +384,15 @@ export default function Home() {
 
     if (validDeletionRegions.length > 0) {
       requestData.deletion_regions = validDeletionRegions;
+    }
+
+    // Add insertion positions if any (filter out invalid positions)
+    const validInsertionPositions = insertionPositions.filter(
+      (pos): pos is number => pos !== undefined && pos > 0,
+    );
+
+    if (validInsertionPositions.length > 0) {
+      requestData.insertions = validInsertionPositions;
     }
 
     // Add protein domain if specified
@@ -1012,6 +1025,59 @@ export default function Home() {
                           }}
                         >
                           Add Deletion Region
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack>
+                      <Text size="sm" fw={500} mb="xs">
+                        Insertion Positions (genomic coordinates):
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        Enter positions where insertions occur (e.g., 100, 500)
+                      </Text>
+                      <Stack gap="xs">
+                        {insertionPositions.map((pos, idx) => (
+                          <Group key={`insertion-${idx}-${pos}`} gap="xs">
+                            <NumberInput
+                              placeholder="e.g., 100"
+                              value={pos}
+                              onChange={(val) => {
+                                const newPositions = [...insertionPositions];
+                                newPositions[idx] =
+                                  val === "" ? undefined : Number(val);
+                                setInsertionPositions(newPositions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setInsertionPositions(
+                                  insertionPositions.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setInsertionPositions([
+                              ...insertionPositions,
+                              undefined,
+                            ]);
+                          }}
+                        >
+                          Add Insertion Position
                         </Button>
                       </Stack>
                     </Stack>
