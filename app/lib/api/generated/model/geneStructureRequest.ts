@@ -7,15 +7,14 @@
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { GeneStructureRequestDomainsItem } from './geneStructureRequestDomainsItem';
+import type { ProteinDomain } from './proteinDomain';
 
 export interface GeneStructureRequest {
   draw_settings: DrawSettings;
   gene_structure: GeneStructureInfo;
   deletion_regions?: number[][];
   domains?: GeneStructureRequestDomainsItem[];
-  protein_domain_start?: number | null;
-  protein_domain_end?: number | null;
-  protein_domain_name?: string | null;
+  protein_domains?: ProteinDomain[];
   snps?: number[];
   insertions?: number[];
 }

@@ -247,6 +247,23 @@ class GeneStructure:
 # Pydanticモデル
 # =====================
 
+class ProteinDomain(BaseModel):
+    """アミノ酸座標で指定するプロテインドメイン"""
+    start: int
+    end: int
+    name: str
+
+    @model_validator(mode='after')
+    def validate_range(self):
+        if self.start <= 0:
+            raise ValueError(f"start must be a positive integer (got {self.start})")
+        if self.end <= 0:
+            raise ValueError(f"end must be a positive integer (got {self.end})")
+        if self.start >= self.end:
+            raise ValueError(f"start ({self.start}) must be less than end ({self.end})")
+        return self
+
+
 class DrawGeneRequest(BaseModel):
     transcript_id: str
     gff_file_path: str = './gff3/IRGSP-1.0_representative/transcripts.gff'
@@ -296,9 +313,7 @@ class GeneStructureRequest(BaseModel):
     gene_structure: GeneStructureInfo
     deletion_regions: List[List[int]] = []
     domains: List[Dict] = []
-    protein_domain_start: Optional[int] = None
-    protein_domain_end: Optional[int] = None
-    protein_domain_name: Optional[str] = None
+    protein_domains: List[ProteinDomain] = []
     snps: List[int] = []
     insertions: List[int] = []
 
@@ -315,41 +330,6 @@ class GeneStructureRequest(BaseModel):
             if start >= end:
                 raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
         return v
-
-    @field_validator('protein_domain_start')
-    @classmethod
-    def validate_protein_domain_start(cls, v):
-        """protein_domain_startのバリデーション"""
-        if v is not None and v <= 0:
-            raise ValueError(f"protein_domain_start must be a positive integer (got {v})")
-        return v
-
-    @field_validator('protein_domain_end')
-    @classmethod
-    def validate_protein_domain_end(cls, v):
-        """protein_domain_endのバリデーション"""
-        if v is not None and v <= 0:
-            raise ValueError(f"protein_domain_end must be a positive integer (got {v})")
-        return v
-
-    @model_validator(mode='after')
-    def validate_protein_domain(self):
-        """protein domainの整合性チェック"""
-        start = self.protein_domain_start
-        end = self.protein_domain_end
-        name = self.protein_domain_name
-
-        # 3つのうち1つでも設定されている場合、すべてが必要
-        if any([start, end, name]):
-            if not all([start, end, name]):
-                raise ValueError(
-                    "protein_domain_start, protein_domain_end, and protein_domain_name must all be provided together"
-                )
-            if start >= end:
-                raise ValueError(
-                    f"protein_domain_start ({start}) must be less than protein_domain_end ({end})"
-                )
-        return self
 
     @field_validator('domains')
     @classmethod
@@ -393,9 +373,7 @@ class MultiGeneStructureRequest(BaseModel):
     label_spacing: int = 10  # ラベルと遺伝子構造の余白（ピクセル）
     deletion_regions: List[List[int]] = []
     domains: List[Dict] = []
-    protein_domain_start: Optional[int] = None
-    protein_domain_end: Optional[int] = None
-    protein_domain_name: Optional[str] = None
+    protein_domains: List[ProteinDomain] = []
     snps: List[int] = []
     insertions: List[int] = []
 
@@ -442,41 +420,6 @@ class MultiGeneStructureRequest(BaseModel):
             if start >= end:
                 raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
         return v
-
-    @field_validator('protein_domain_start')
-    @classmethod
-    def validate_protein_domain_start(cls, v):
-        """protein_domain_startのバリデーション"""
-        if v is not None and v <= 0:
-            raise ValueError(f"protein_domain_start must be a positive integer (got {v})")
-        return v
-
-    @field_validator('protein_domain_end')
-    @classmethod
-    def validate_protein_domain_end(cls, v):
-        """protein_domain_endのバリデーション"""
-        if v is not None and v <= 0:
-            raise ValueError(f"protein_domain_end must be a positive integer (got {v})")
-        return v
-
-    @model_validator(mode='after')
-    def validate_protein_domain(self):
-        """protein domainの整合性チェック"""
-        start = self.protein_domain_start
-        end = self.protein_domain_end
-        name = self.protein_domain_name
-
-        # 3つのうち1つでも設定されている場合、すべてが必要
-        if any([start, end, name]):
-            if not all([start, end, name]):
-                raise ValueError(
-                    "protein_domain_start, protein_domain_end, and protein_domain_name must all be provided together"
-                )
-            if start >= end:
-                raise ValueError(
-                    f"protein_domain_start ({start}) must be less than protein_domain_end ({end})"
-                )
-        return self
 
     @field_validator('domains')
     @classmethod

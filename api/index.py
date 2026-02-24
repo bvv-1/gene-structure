@@ -135,12 +135,8 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
         gene.to_relative()
 
         # プロテインドメインを追加（指定されている場合）
-        if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
-            gene.add_domain_from_protein_coords(
-                request.protein_domain_start,
-                request.protein_domain_end,
-                request.protein_domain_name
-            )
+        for pd in request.protein_domains:
+            gene.add_domain_from_protein_coords(pd.start, pd.end, pd.name)
 
         # ドメインを追加
         if request.domains:
@@ -190,13 +186,9 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
             # 共通関数でGeneStructureを構築
             gene = build_gene_structure(gene_info)
 
-            # プロテインドメインを追加（最初の遺伝子のみに適用、オプション）
-            if request.protein_domain_start and request.protein_domain_end and request.protein_domain_name:
-                gene.add_domain_from_protein_coords(
-                    request.protein_domain_start,
-                    request.protein_domain_end,
-                    request.protein_domain_name
-                )
+            # プロテインドメインを追加
+            for pd in request.protein_domains:
+                gene.add_domain_from_protein_coords(pd.start, pd.end, pd.name)
 
             # ドメインを追加
             if request.domains:
