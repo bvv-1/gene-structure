@@ -20,6 +20,7 @@ import {
   Title,
 } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
+import { useDebouncedValue } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconArrowLeft,
@@ -298,6 +299,14 @@ export default function Home() {
     }>
   >([]);
 
+  // Debounced versions of detail settings (500ms delay to reduce API calls during input)
+  const [debouncedProteinDomains] = useDebouncedValue(proteinDomains, 500);
+  const [debouncedDeletionRegions] = useDebouncedValue(deletionRegions, 500);
+  const [debouncedInsertionPositions] = useDebouncedValue(
+    insertionPositions,
+    500,
+  );
+
   // Handle preset GFF selection
   const handlePresetGffSelect = async (value: string | null) => {
     if (!value) return;
@@ -370,7 +379,8 @@ export default function Home() {
     };
 
     // Add deletion regions if any (filter out invalid regions)
-    const validDeletionRegions = deletionRegions
+    // Use debounced values to reduce API calls during input
+    const validDeletionRegions = debouncedDeletionRegions
       .filter(
         (region): region is [number, number] =>
           region[0] !== undefined &&
@@ -385,7 +395,8 @@ export default function Home() {
     }
 
     // Add insertion positions if any (filter out invalid positions)
-    const validInsertionPositions = insertionPositions.filter(
+    // Use debounced values to reduce API calls during input
+    const validInsertionPositions = debouncedInsertionPositions.filter(
       (pos): pos is number => pos !== undefined && pos > 0,
     );
 
@@ -394,7 +405,8 @@ export default function Home() {
     }
 
     // Add protein domains if any (filter out invalid domains)
-    const validProteinDomains = proteinDomains
+    // Use debounced values to reduce API calls during input
+    const validProteinDomains = debouncedProteinDomains
       .filter(
         (domain): domain is { start: number; end: number; name: string } =>
           domain.start !== undefined &&
@@ -471,6 +483,7 @@ export default function Home() {
       onSuccess: (data) => {
         renderSvgToCanvas(data.url);
       },
+      keepPreviousData: true, // Keep previous image while fetching new data
     },
   );
 
