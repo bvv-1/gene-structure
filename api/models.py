@@ -192,12 +192,12 @@ class GeneStructure:
         cdna_start = (start_aa - 1) * 3 + 1
         cdna_end = end_aa * 3
 
-        # CDS features を取得してストランド順に並べ替え
+        # CDS features を取得して転写方向（5'→3'）順に並べ替え
         cds_features = [f for f in self.features if f.feature_type == 'CDS']
         if self.strand == '-':
-            cds_sorted = sorted(cds_features, key=lambda f: f.start)
-        else:
             cds_sorted = sorted(cds_features, key=lambda f: f.start, reverse=True)
+        else:
+            cds_sorted = sorted(cds_features, key=lambda f: f.start)
 
         current_cdna_pos = 1
 
@@ -220,11 +220,11 @@ class GeneStructure:
 
             # ゲノム座標に変換
             if self.strand == '-':
-                g_start = cds.start + offset_start
-                g_end = cds.start + offset_end
-            else:
                 g_end = cds.end - offset_start
                 g_start = cds.end - offset_end
+            else:
+                g_start = cds.start + offset_start
+                g_end = cds.start + offset_end
 
             # ドメイン色を取得（まだ割り当てられていなければパレットから自動割り当て）
             color = get_domain_color(domain_name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
