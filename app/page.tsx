@@ -65,6 +65,7 @@ type MultiGeneStructureRequest = {
   label_spacing: number;
   deletion_regions?: number[][];
   insertions?: number[];
+  snps?: number[];
   domains?: { start: number; end: number; name: string }[];
   protein_domains?: { start: number; end: number; name: string }[];
 };
@@ -299,6 +300,10 @@ export default function Home() {
     }>
   >([]);
 
+  const [snpPositions, setSnpPositions] = useState<Array<number | undefined>>(
+    [],
+  );
+
   // Debounced versions of detail settings (500ms delay to reduce API calls during input)
   const [debouncedProteinDomains] = useDebouncedValue(proteinDomains, 500);
   const [debouncedDeletionRegions] = useDebouncedValue(deletionRegions, 500);
@@ -306,6 +311,7 @@ export default function Home() {
     insertionPositions,
     500,
   );
+  const [debouncedSnpPositions] = useDebouncedValue(snpPositions, 500);
 
   // Handle preset GFF selection
   const handlePresetGffSelect = async (value: string | null) => {
@@ -402,6 +408,16 @@ export default function Home() {
 
     if (validInsertionPositions.length > 0) {
       requestData.insertions = validInsertionPositions;
+    }
+
+    // Add SNP positions if any (filter out invalid positions)
+    // Use debounced values to reduce API calls during input
+    const validSnpPositions = debouncedSnpPositions.filter(
+      (pos): pos is number => pos !== undefined && pos > 0,
+    );
+
+    if (validSnpPositions.length > 0) {
+      requestData.snps = validSnpPositions;
     }
 
     // Add protein domains if any (filter out invalid domains)
@@ -1134,6 +1150,54 @@ export default function Home() {
                           }}
                         >
                           Add Insertion Position
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack>
+                      <Text size="sm" fw={500} mb="xs">
+                        SNP Positions (genomic coordinates):
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        Enter positions of SNPs (e.g., 150, 800)
+                      </Text>
+                      <Stack gap="xs">
+                        {snpPositions.map((pos, idx) => (
+                          <Group key={`snp-${idx}-${pos}`} gap="xs">
+                            <NumberInput
+                              placeholder="e.g., 150"
+                              value={pos}
+                              onChange={(val) => {
+                                const newPositions = [...snpPositions];
+                                newPositions[idx] =
+                                  val === "" ? undefined : Number(val);
+                                setSnpPositions(newPositions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setSnpPositions(
+                                  snpPositions.filter((_, i) => i !== idx),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSnpPositions([...snpPositions, undefined]);
+                          }}
+                        >
+                          Add SNP Position
                         </Button>
                       </Stack>
                     </Stack>
