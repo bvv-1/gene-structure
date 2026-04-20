@@ -25,9 +25,9 @@ class GeneStructure:
         self.snps = []
         self.domain_color_map = {}
 
-    def add_insertions(self, insertion_positions):
-        """Insertion位置のリストを設定"""
-        self.insertions = insertion_positions
+    def add_insertions(self, insertions):
+        """Insertionオブジェクトのリストを設定（position, lengthを持つ）"""
+        self.insertions = insertions
 
     def add_snps(self, snp_positions):
         """SNP位置のリストを設定"""
@@ -247,6 +247,20 @@ class GeneStructure:
 # Pydanticモデル
 # =====================
 
+class Insertion(BaseModel):
+    """挿入位置と長さを指定するモデル"""
+    position: int  # 挿入位置（ゲノム座標）
+    length: int    # 挿入長（bp）
+
+    @model_validator(mode='after')
+    def validate_insertion(self):
+        if self.position <= 0:
+            raise ValueError(f"position must be a positive integer (got {self.position})")
+        if self.length <= 0:
+            raise ValueError(f"length must be a positive integer (got {self.length})")
+        return self
+
+
 class ProteinDomain(BaseModel):
     """アミノ酸座標で指定するプロテインドメイン"""
     start: int
@@ -315,7 +329,7 @@ class GeneStructureRequest(BaseModel):
     domains: List[Dict] = []
     protein_domains: List[ProteinDomain] = []
     snps: List[int] = []
-    insertions: List[int] = []
+    insertions: List[Insertion] = []
 
     @field_validator('deletion_regions')
     @classmethod
@@ -375,7 +389,7 @@ class MultiGeneStructureRequest(BaseModel):
     domains: List[Dict] = []
     protein_domains: List[ProteinDomain] = []
     snps: List[int] = []
-    insertions: List[int] = []
+    insertions: List[Insertion] = []
 
     @field_validator('gene_structures')
     @classmethod

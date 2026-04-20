@@ -6,6 +6,7 @@
  */
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
+import type { Insertion } from './insertion';
 import type { MultiGeneStructureRequestDomainsItem } from './multiGeneStructureRequestDomainsItem';
 import type { ProteinDomain } from './proteinDomain';
 
@@ -22,5 +23,5 @@ export interface MultiGeneStructureRequest {
   domains?: MultiGeneStructureRequestDomainsItem[];
   protein_domains?: ProteinDomain[];
   snps?: number[];
-  insertions?: number[];
+  insertions?: Insertion[];
 }

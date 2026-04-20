@@ -51,6 +51,11 @@ import { parseFile, parseFileContent } from "./utils/gtf";
 
 type UIState = "upload" | "select" | "preview";
 
+type InsertionInput = {
+  position: number | undefined;
+  length: number | undefined;
+};
+
 type MultiGeneStructureRequest = {
   draw_settings: {
     mode: string;
@@ -64,7 +69,7 @@ type MultiGeneStructureRequest = {
   gene_spacing: number;
   label_spacing: number;
   deletion_regions?: number[][];
-  insertions?: number[];
+  insertions?: { position: number; length: number }[];
   snps?: number[];
   domains?: { start: number; end: number; name: string }[];
   protein_domains?: { start: number; end: number; name: string }[];
@@ -289,9 +294,7 @@ export default function Home() {
   const [deletionRegions, setDeletionRegions] = useState<
     Array<[number | undefined, number | undefined]>
   >([]);
-  const [insertionPositions, setInsertionPositions] = useState<
-    Array<number | undefined>
-  >([]);
+  const [insertions, setInsertions] = useState<Array<InsertionInput>>([]);
   const [proteinDomains, setProteinDomains] = useState<
     Array<{
       start: number | undefined;
@@ -307,10 +310,7 @@ export default function Home() {
   // Debounced versions of detail settings (500ms delay to reduce API calls during input)
   const [debouncedProteinDomains] = useDebouncedValue(proteinDomains, 500);
   const [debouncedDeletionRegions] = useDebouncedValue(deletionRegions, 500);
-  const [debouncedInsertionPositions] = useDebouncedValue(
-    insertionPositions,
-    500,
-  );
+  const [debouncedInsertions] = useDebouncedValue(insertions, 500);
   const [debouncedSnpPositions] = useDebouncedValue(snpPositions, 500);
 
   // Handle preset GFF selection
@@ -400,14 +400,20 @@ export default function Home() {
       requestData.deletion_regions = validDeletionRegions;
     }
 
-    // Add insertion positions if any (filter out invalid positions)
+    // Add insertions if any (filter out invalid insertions)
     // Use debounced values to reduce API calls during input
-    const validInsertionPositions = debouncedInsertionPositions.filter(
-      (pos): pos is number => pos !== undefined && pos > 0,
-    );
+    const validInsertions = debouncedInsertions
+      .filter(
+        (ins): ins is { position: number; length: number } =>
+          ins.position !== undefined &&
+          ins.length !== undefined &&
+          ins.position > 0 &&
+          ins.length > 0,
+      )
+      .map(({ position, length }) => ({ position, length }));
 
-    if (validInsertionPositions.length > 0) {
-      requestData.insertions = validInsertionPositions;
+    if (validInsertions.length > 0) {
+      requestData.insertions = validInsertions;
     }
 
     // Add SNP positions if any (filter out invalid positions)
@@ -1103,22 +1109,40 @@ export default function Home() {
 
                     <Stack>
                       <Text size="sm" fw={500} mb="xs">
-                        Insertion Positions (genomic coordinates):
+                        Insertions (genomic coordinates):
                       </Text>
                       <Text size="xs" c="dimmed" mb="xs">
-                        Enter positions where insertions occur (e.g., 100, 500)
+                        Enter position and length (bp) of insertions
                       </Text>
                       <Stack gap="xs">
-                        {insertionPositions.map((pos, idx) => (
-                          <Group key={`insertion-${idx}-${pos}`} gap="xs">
+                        {insertions.map((ins, idx) => (
+                          <Group
+                            key={`insertion-${idx}-${ins.position}-${ins.length}`}
+                            gap="xs"
+                            align="flex-end"
+                          >
                             <NumberInput
+                              label={idx === 0 ? "Position" : undefined}
                               placeholder="e.g., 100"
-                              value={pos}
+                              value={ins.position}
                               onChange={(val) => {
-                                const newPositions = [...insertionPositions];
-                                newPositions[idx] =
+                                const newInsertions = [...insertions];
+                                newInsertions[idx].position =
                                   val === "" ? undefined : Number(val);
-                                setInsertionPositions(newPositions);
+                                setInsertions(newInsertions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <NumberInput
+                              label={idx === 0 ? "Length (bp)" : undefined}
+                              placeholder="e.g., 50"
+                              value={ins.length}
+                              onChange={(val) => {
+                                const newInsertions = [...insertions];
+                                newInsertions[idx].length =
+                                  val === "" ? undefined : Number(val);
+                                setInsertions(newInsertions);
                               }}
                               min={1}
                               style={{ flex: 1 }}
@@ -1128,10 +1152,8 @@ export default function Home() {
                               color="red"
                               size="sm"
                               onClick={() => {
-                                setInsertionPositions(
-                                  insertionPositions.filter(
-                                    (_, i) => i !== idx,
-                                  ),
+                                setInsertions(
+                                  insertions.filter((_, i) => i !== idx),
                                 );
                               }}
                             >
@@ -1143,13 +1165,13 @@ export default function Home() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setInsertionPositions([
-                              ...insertionPositions,
-                              undefined,
+                            setInsertions([
+                              ...insertions,
+                              { position: undefined, length: undefined },
                             ]);
                           }}
                         >
-                          Add Insertion Position
+                          Add Insertion
                         </Button>
                       </Stack>
                     </Stack>
