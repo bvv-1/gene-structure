@@ -47,6 +47,27 @@ LEFT_MARGIN = 50  # 左側マージン
 # ヘルパー関数
 # =====================
 
+def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float) -> float:
+    """
+    挿入の長さに応じて逆三角形の底辺幅を計算
+
+    Args:
+        length_bp: 挿入の長さ（bp）
+        shrink_factor: 座標の縮小係数
+        scale: スケール倍率
+
+    Returns:
+        底辺幅（ピクセル）
+    """
+    # 実際のbp長をスケール変換
+    scaled_width = (length_bp / shrink_factor) * scale
+
+    # 最小幅と最大幅を設定
+    min_width = 8
+    max_width = 40
+
+    return max(min_width, min(scaled_width, max_width))
+
 def get_tick_params(range_size: int) -> tuple:
     """
     範囲サイズに応じて適切な目盛り間隔と単位を返す
@@ -192,17 +213,26 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                 )
 
     # === Insertions ===
-    triangle_width = 8
     triangle_height = 6
     y_triangle = y_pos - 8  # exon の少し上
 
-    for ins_pos in getattr(gene, "insertions", []):
+    for ins in getattr(gene, "insertions", []):
+        # Insertionオブジェクトの場合はpositionとlengthを取得、それ以外は後方互換性のため位置のみ
+        if hasattr(ins, 'position'):
+            ins_pos = ins.position
+            ins_length = getattr(ins, 'length', 1)
+        else:
+            ins_pos = ins
+            ins_length = 1
+
         x = LEFT_MARGIN + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+        base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
+
         dwg.add(
             dwg.polygon(
                 points=[
-                    (x - triangle_width / 2, y_triangle),
-                    (x + triangle_width / 2, y_triangle),
+                    (x - base_width / 2, y_triangle),
+                    (x + base_width / 2, y_triangle),
                     (x, y_triangle + triangle_height)
                 ],
                 fill="black",
@@ -500,17 +530,26 @@ def draw_multiple_gene_structures(
                     )
 
         # === Insertions ===
-        triangle_width = 8
         triangle_height = 6
         y_triangle = y_pos - 8
 
-        for ins_pos in getattr(gene, "insertions", []):
+        for ins in getattr(gene, "insertions", []):
+            # Insertionオブジェクトの場合はpositionとlengthを取得、それ以外は後方互換性のため位置のみ
+            if hasattr(ins, 'position'):
+                ins_pos = ins.position
+                ins_length = getattr(ins, 'length', 1)
+            else:
+                ins_pos = ins
+                ins_length = 1
+
             x = LEFT_MARGIN + label_width + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+            base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
+
             dwg.add(
                 dwg.polygon(
                     points=[
-                        (x - triangle_width / 2, y_triangle),
-                        (x + triangle_width / 2, y_triangle),
+                        (x - base_width / 2, y_triangle),
+                        (x + base_width / 2, y_triangle),
                         (x, y_triangle + triangle_height)
                     ],
                     fill="black",
@@ -904,17 +943,26 @@ def draw_region_gene_structures(
                     )
 
         # === Insertions ===
-        triangle_width = 8
         triangle_height = 6
         y_triangle = y_pos - 8
 
-        for ins_pos in getattr(gene, "insertions", []):
+        for ins in getattr(gene, "insertions", []):
+            # Insertionオブジェクトの場合はpositionとlengthを取得、それ以外は後方互換性のため位置のみ
+            if hasattr(ins, 'position'):
+                ins_pos = ins.position
+                ins_length = getattr(ins, 'length', 1)
+            else:
+                ins_pos = ins
+                ins_length = 1
+
             x = LEFT_MARGIN + (ins_pos - draw_start) / shrink_factor * scale
+            base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
+
             dwg.add(
                 dwg.polygon(
                     points=[
-                        (x - triangle_width / 2, y_triangle),
-                        (x + triangle_width / 2, y_triangle),
+                        (x - base_width / 2, y_triangle),
+                        (x + base_width / 2, y_triangle),
                         (x, y_triangle + triangle_height)
                     ],
                     fill="black",

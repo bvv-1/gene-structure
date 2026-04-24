@@ -7,6 +7,7 @@
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { GeneStructureRequestDomainsItem } from './geneStructureRequestDomainsItem';
+import type { Insertion } from './insertion';
 import type { ProteinDomain } from './proteinDomain';
 
 export interface GeneStructureRequest {
@@ -16,5 +17,5 @@ export interface GeneStructureRequest {
   domains?: GeneStructureRequestDomainsItem[];
   protein_domains?: ProteinDomain[];
   snps?: number[];
-  insertions?: number[];
+  insertions?: Insertion[];
 }

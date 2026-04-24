@@ -395,7 +395,7 @@
           },
           "insertions": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/Insertion"
             },
             "type": "array",
             "title": "Insertions",
@@ -421,6 +421,25 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Insertion": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "length": {
+            "type": "integer",
+            "title": "Length"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "length"
+        ],
+        "title": "Insertion",
+        "description": "\u633f\u5165\u4f4d\u7f6e\u3068\u9577\u3055\u3092\u6307\u5b9a\u3059\u308b\u30e2\u30c7\u30eb"
       },
       "MultiGeneStructureRequest": {
         "properties": {
@@ -486,7 +505,7 @@
           },
           "insertions": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/Insertion"
             },
             "type": "array",
             "title": "Insertions",

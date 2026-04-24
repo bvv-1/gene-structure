@@ -11,6 +11,7 @@ export * from './geneStructureInfoAttributes';
 export * from './geneStructureRequest';
 export * from './geneStructureRequestDomainsItem';
 export * from './hTTPValidationError';
+export * from './insertion';
 export * from './multiGeneStructureRequest';
 export * from './multiGeneStructureRequestDomainsItem';
 export * from './position';
