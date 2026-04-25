@@ -35,6 +35,7 @@ import {
 import { useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { DelayedNumberInput } from "./components/DelayedNumberInput";
 import { GeneSelector } from "./components/GeneSelector";
 import { RegionSelector } from "./components/RegionSelector";
 import SvgViewer from "./components/SvgViewer";
@@ -975,7 +976,7 @@ export default function Home() {
                             gap="xs"
                             align="flex-end"
                           >
-                            <NumberInput
+                            <DelayedNumberInput
                               label={idx === 0 ? "Start" : undefined}
                               placeholder="e.g., 1"
                               value={domain.start}
@@ -988,7 +989,7 @@ export default function Home() {
                               min={1}
                               style={{ flex: 1 }}
                             />
-                            <NumberInput
+                            <DelayedNumberInput
                               label={idx === 0 ? "End" : undefined}
                               placeholder="e.g., 100"
                               value={domain.end}
@@ -1054,7 +1055,7 @@ export default function Home() {
                             key={`deletion-${idx}-${region[0]}-${region[1]}`}
                             gap="xs"
                           >
-                            <NumberInput
+                            <DelayedNumberInput
                               placeholder="e.g., 12"
                               value={region[0]}
                               onChange={(val) => {
@@ -1066,7 +1067,7 @@ export default function Home() {
                               min={1}
                               style={{ flex: 1 }}
                             />
-                            <NumberInput
+                            <DelayedNumberInput
                               placeholder="e.g., 2000"
                               value={region[1]}
                               onChange={(val) => {
@@ -1121,7 +1122,7 @@ export default function Home() {
                             gap="xs"
                             align="flex-end"
                           >
-                            <NumberInput
+                            <DelayedNumberInput
                               label={idx === 0 ? "Position" : undefined}
                               placeholder="e.g., 100"
                               value={ins.position}
@@ -1134,7 +1135,7 @@ export default function Home() {
                               min={1}
                               style={{ flex: 1 }}
                             />
-                            <NumberInput
+                            <DelayedNumberInput
                               label={idx === 0 ? "Length (bp)" : undefined}
                               placeholder="e.g., 50"
                               value={ins.length}
@@ -1186,7 +1187,7 @@ export default function Home() {
                       <Stack gap="xs">
                         {snpPositions.map((pos, idx) => (
                           <Group key={`snp-${idx}-${pos}`} gap="xs">
-                            <NumberInput
+                            <DelayedNumberInput
                               placeholder="e.g., 150"
                               value={pos}
                               onChange={(val) => {
