@@ -10,75 +10,73 @@
 ## Citation
 Hashimoto, yamada and Izawa. in prepareing.
 
+
+
+## Features
+
+- Load gene structures from GFF3 files
+- Visualization of exons, CDS, UTRs, introns, and domains
+- Conversion of protein domain coordinates (amino acid level) to genomic coordinates
+- Support for deletion regions
+- Output in SVG format
+- Three interfaces: Web UI, REST API, and CLI
+
+## Start the Web Application
+You can immediately try the web application here. No installation is required. Simply open the link in your browser to start visualizing gene structures.
 https://gene-structure.vercel.app/
 
-https://github.com/user-attachments/assets/dea4a1d2-b128-43b8-bd30-643a94cdee6c
+## Development Environment
 
-https://github.com/user-attachments/assets/1559326f-ecc5-4355-9e0d-131ee74db1f2
+### Requirements
 
-## 機能
+- Node.js 22.14.0 (version managed with mise)
+- Python 3.12 or higher
 
-- GFF3ファイルから遺伝子構造を読み込み
-- エクソン、CDS、UTR、イントロン、ドメインの視覚化
-- プロテインドメインのアミノ酸座標からゲノム座標への変換
-- 削除領域(deletion)のサポート
-- SVG形式での出力
-- Web UI、REST API、CLIの3つのインターフェース
+### Setup
 
-## 開発環境
-
-### 必要条件
-
-- Node.js 22.14.0 [mise](https://github.com/jdx/mise)でバージョンを管理
-- Python 3.12以上
-
-### セットアップ
-
-まず、仮想環境を作成してアクティベートします：
+First, create and activate a virtual environment:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-次に、依存関係をインストールします：
+Next, install dependencies:
 
 ```bash
 npm install
 pip install -r requirements.txt
 ```
 
-その後、開発サーバーを起動します：
+Then, start the development server:
 
 ```bash
 npm run dev
 ```
 
-ブラウザで[http://localhost:3000](http://localhost:3000)を開くと、アプリケーションが表示されます。
+Open http://localhost:3000 in your browser to view the application.
 
-### FastAPI サーバーのみ起動する場合
+### Running FastAPI Server Only
 
 ```bash
 source venv/bin/activate
 python3 -m uvicorn api.index:app --reload --host 127.0.0.1 --port 8000
 ```
 
-API ドキュメントは [http://127.0.0.1:8000/api/py/docs](http://127.0.0.1:8000/api/py/docs) で確認できます。
+# API documentation
+http://127.0.0.1:8000/api/py/docs
 
-## 使い方
+## Usage
 
 ### Web UI
 
-ブラウザで [https://gene-structure.vercel.app/](https://gene-structure.vercel.app/) にアクセスして、GUIから遺伝子構造を視覚化できます。
+# Access via browser
+https://gene-structure.vercel.app/
 
 ### REST API
 
-FastAPIサーバーを起動後、以下のようにAPIを使用できます：
-
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg" \
-  -H "Content-Type: application/json" \
-  -d '{
+curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg"   -H "Content-Type: application/json"   -d '{
     "gene_structure": {
       "transcript_id": "Os06t0160700-01",
       "seq_id": "chr06",
@@ -88,34 +86,33 @@ curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg" \
       "five_prime_utrs": [],
       "three_prime_utrs": []
     }
-  }' \
-  -o output.svg
+  }'   -o output.svg
 ```
 
-#### APIパラメータ
+#### API Parameters
 
-- `gene_structure` (required): 遺伝子構造情報オブジェクト
-  - `transcript_id`: トランスクリプトID
-  - `seq_id`: シーケンスID
-  - `strand`: ストランド方向（`+` または `-`）
-  - `exons`: エクソンのリスト `[{"start": number, "end": number}, ...]`
-  - `cds`: CDSのリスト `[{"start": number, "end": number}, ...]`
-  - `five_prime_utrs`: 5' UTRのリスト
-  - `three_prime_utrs`: 3' UTRのリスト
-- `domains` (optional): ドメイン領域のリスト `[{"start": 200, "end": 500, "name": "Kinase", "color": "red"}, ...]`
-- `deletion_regions` (optional): 削除領域のリスト `[[start, end], ...]`
+- gene_structure (required): Gene structure object
+  # transcript-level annotation
+  - transcript_id
+  - seq_id
+  - strand (+ or -)
+  - exons
+  - cds
+  - five_prime_utrs
+  - three_prime_utrs
 
-### CLI ツール
+# optional annotations
+- domains (optional)
+- deletion_regions (optional)
 
-`api/original.py`を直接実行することで、コマンドラインから遺伝子構造を描画できます：
+### CLI Tool
 
 ```bash
 source venv/bin/activate
 python3 api/original.py
 ```
 
-パラメータは `api/original.py` の397行目以降で設定できます：
-
+# Parameters are defined inside api/original.py
 ```python
 gff_file = './geneSTRUCTURE_v2/gff3/IRGSP-1.0_representative/transcripts.gff'
 transcript_id = 'Os06t0160700-01'
@@ -126,85 +123,85 @@ domains = [
 ]
 ```
 
-実行すると、`{transcript_id}_with_relative_deletions.svg` というファイルが生成されます。
+# Output file
+{transcript_id}_with_relative_deletions.svg
 
-## プロジェクト構成
+## Project Structure
 
 ```
 .
-├── app/                      # フロントエンド (Next.js)
-│   ├── components/          # 共通コンポーネント
-│   │   ├── Layout.tsx       # レイアウトコンポーネント
-│   │   └── SvgViewer.tsx    # SVGビューアー（react-svg-pan-zoom）
-│   ├── utils/               # ユーティリティ
-│   │   ├── gff.ts           # GFF3パーサー
-│   │   └── gff.test.ts      # GFFパーサーのテスト
-│   ├── api/                 # Next.js APIルート
-│   │   ├── list-gffs/       # GFFファイル一覧取得
-│   │   └── upload-gff/      # GFFファイルアップロード
-│   ├── docs/                # ドキュメントページ
-│   ├── faq/                 # FAQページ
-│   ├── page.tsx             # メインページ
-│   └── layout.tsx           # ルートレイアウト
-├── api/                      # バックエンド (FastAPI)
-│   ├── index.py             # FastAPI エンドポイント
-│   ├── models.py            # データモデル（GeneFeature、GeneStructure等）
-│   ├── drawer.py            # SVG描画ロジック
-│   └── parser.py            # パーサー
-├── geneSTRUCTURE_v2/        # GFF3データ
+├── app/                      # Frontend (Next.js)
+│   ├── components/          # Shared components
+│   │   ├── Layout.tsx       # Layout component
+│   │   └── SvgViewer.tsx    # SVG viewer (react-svg-pan-zoom)
+│   ├── utils/               # Utilities
+│   │   ├── gff.ts           # GFF3 parser
+│   │   └── gff.test.ts      # Test for GFF parser
+│   ├── api/                 # Next.js API routes
+│   │   ├── list-gffs/       # Fetch GFF list
+│   │   └── upload-gff/      # Upload GFF
+│   ├── docs/                # Documentation
+│   ├── faq/                 # FAQ
+│   ├── page.tsx             # Main page
+│   └── layout.tsx           # Root layout
+├── api/                      # Backend (FastAPI)
+│   ├── index.py             # FastAPI endpoint
+│   ├── models.py            # Data models
+│   ├── drawer.py            # SVG rendering logic
+│   └── parser.py            # Parser
+├── geneSTRUCTURE_v2/        # GFF3 data
 │   └── gff3/
 │       └── IRGSP-1.0_representative/
 │           └── transcripts.gff
-├── requirements.txt         # Python依存関係
-├── package.json             # Node.js依存関係
-├── tsconfig.json            # TypeScript設定
-├── biome.json               # Biome設定（フォーマッター/リンター）
-├── next.config.js           # Next.js設定
-└── README.md                # プロジェクト説明
+├── requirements.txt         # Python dependencies
+├── package.json             # Node.js dependencies
+├── tsconfig.json            # TypeScript config
+├── biome.json               # Formatter / linter
+├── next.config.js           # Next.js config
+└── README.md                # Project description
 ```
 
-## 技術スタック
+## Tech Stack
 
-### フロントエンド
+### Frontend
 - Next.js 16
 - React 19
 - TypeScript
-- Mantine v8（UIコンポーネント）
-- react-svg-pan-zoom（SVGビューアー）
-- @gmod/gff（GFF3パーサー、ストリーミング対応）
-- @gmod/gtf（GTFパーサー）
+- Mantine v8 (UI components)
+- react-svg-pan-zoom (SVG viewer)
+- @gmod/gff (GFF3 parser)
+- @gmod/gtf (GTF parser)
 
-### バックエンド
+### Backend
 - FastAPI
 - Python 3.12
-- svgwrite（SVG生成）
-- reportlab（PDF生成）
-- Pydantic（データバリデーション）
+- svgwrite (SVG generation)
+- reportlab (PDF generation)
+- Pydantic (validation)
 
-### 開発ツール
-- Biome（フォーマッター/リンター）
-- Vitest（テスト）
-- mise（Node.jsバージョン管理）
-- orval（OpenAPI型生成）
+### Development Tools
+- Biome (formatter/linter)
+- Vitest (testing)
+- mise (Node version manager)
+- orval (OpenAPI types)
 
-## テスト
+## Testing
 
 ```bash
-# フロントエンドテスト（Vitest）
+# frontend test
 npm run test
 
-# 型チェック
+# type check
 npm run ts
 
-# フォーマット
+# format
 npm run fmt
 ```
 
-## コントリビュート
+## Contributing
 
-1. このリポジトリをフォーク
-2. feature ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'feat: add amazing feature'`)
-4. ブランチをプッシュ (`git push origin feature/amazing-feature`)
-5. Pull Request を作成
-
+1. Fork this repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push branch (`git push origin feature/amazing-feature`)
+5. Create a Pull Request
