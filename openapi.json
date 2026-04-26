@@ -144,6 +144,37 @@
         "title": "CoordinateMode",
         "description": "\u5ea7\u6a19\u30e2\u30fc\u30c9\u306e\u5217\u6319\u578b"
       },
+      "Deletion": {
+        "properties": {
+          "start": {
+            "type": "integer",
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color",
+            "default": "black"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Deletion",
+        "description": "\u524a\u9664\u9818\u57df\u3068\u8272\u3092\u6307\u5b9a\u3059\u308b\u30e2\u30c7\u30eb"
+      },
       "DrawSettings": {
         "properties": {
           "mode": {
@@ -369,10 +400,7 @@
           },
           "deletion_regions": {
             "items": {
-              "items": {
-                "type": "integer"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/Deletion"
             },
             "type": "array",
             "title": "Deletion Regions",
@@ -396,7 +424,7 @@
           },
           "snps": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/Snp"
             },
             "type": "array",
             "title": "Snps",
@@ -448,6 +476,18 @@
           "length": {
             "type": "integer",
             "title": "Length"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color",
+            "default": "black"
           }
         },
         "type": "object",
@@ -492,10 +532,7 @@
           },
           "deletion_regions": {
             "items": {
-              "items": {
-                "type": "integer"
-              },
-              "type": "array"
+              "$ref": "#/components/schemas/Deletion"
             },
             "type": "array",
             "title": "Deletion Regions",
@@ -519,7 +556,7 @@
           },
           "snps": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/Snp"
             },
             "type": "array",
             "title": "Snps",
@@ -637,6 +674,32 @@
         ],
         "title": "RegionGeneStructureRequest",
         "description": "\u9818\u57df\u6307\u5b9a\u306b\u3088\u308b\u8907\u6570\u907a\u4f1d\u5b50\u306eSVG\u751f\u6210\u30ea\u30af\u30a8\u30b9\u30c8"
+      },
+      "Snp": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color",
+            "default": "black"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position"
+        ],
+        "title": "Snp",
+        "description": "SNP\u4f4d\u7f6e\u3068\u8272\u3092\u6307\u5b9a\u3059\u308b\u30e2\u30c7\u30eb"
       },
       "ValidationError": {
         "properties": {

@@ -6,6 +6,7 @@
  */
 
 export * from './coordinateMode';
+export * from './deletion';
 export * from './drawSettings';
 export * from './geneStructureInfo';
 export * from './geneStructureInfoAttributes';
@@ -18,4 +19,5 @@ export * from './multiGeneStructureRequestDomainsItem';
 export * from './position';
 export * from './proteinDomain';
 export * from './regionGeneStructureRequest';
+export * from './snp';
 export * from './validationError';

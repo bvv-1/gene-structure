@@ -6,10 +6,10 @@
  */
 
 /**
- * 挿入位置と長さを指定するモデル
+ * 削除領域と色を指定するモデル
  */
-export interface Insertion {
-  position: number;
-  length: number;
+export interface Deletion {
+  start: number;
+  end: number;
   color?: string | null;
 }

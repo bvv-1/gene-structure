@@ -5,19 +5,21 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CoordinateMode } from './coordinateMode';
+import type { Deletion } from './deletion';
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { GeneStructureRequestDomainsItem } from './geneStructureRequestDomainsItem';
 import type { Insertion } from './insertion';
 import type { ProteinDomain } from './proteinDomain';
+import type { Snp } from './snp';
 
 export interface GeneStructureRequest {
   draw_settings: DrawSettings;
   gene_structure: GeneStructureInfo;
-  deletion_regions?: number[][];
+  deletion_regions?: Deletion[];
   domains?: GeneStructureRequestDomainsItem[];
   protein_domains?: ProteinDomain[];
-  snps?: number[];
+  snps?: Snp[];
   insertions?: Insertion[];
   coordinate_mode?: CoordinateMode;
 }

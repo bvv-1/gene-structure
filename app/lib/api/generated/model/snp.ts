@@ -6,10 +6,9 @@
  */
 
 /**
- * 挿入位置と長さを指定するモデル
+ * SNP位置と色を指定するモデル
  */
-export interface Insertion {
+export interface Snp {
   position: number;
-  length: number;
   color?: string | null;
 }
