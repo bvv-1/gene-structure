@@ -4,6 +4,7 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
+import type { CoordinateMode } from './coordinateMode';
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { GeneStructureRequestDomainsItem } from './geneStructureRequestDomainsItem';
@@ -18,4 +19,5 @@ export interface GeneStructureRequest {
   protein_domains?: ProteinDomain[];
   snps?: number[];
   insertions?: Insertion[];
+  coordinate_mode?: CoordinateMode;
 }

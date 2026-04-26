@@ -1,4 +1,5 @@
 import io
+import math
 import svgwrite
 from typing import List
 
@@ -68,29 +69,122 @@ def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float)
 
     return max(min_width, min(scaled_width, max_width))
 
-def get_tick_params(range_size: int) -> tuple:
+def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float = 2.0) -> tuple:
     """
-    範囲サイズに応じて適切な目盛り間隔と単位を返す
+    範囲サイズと物理的なスケールに応じて、重なり合わない適切な目盛り間隔と単位を返す
+    """
+    # 目標とする最小ピクセル間隔（ラベルが重ならないように）
+    min_pixel_step = 80 
+    # 最小ピクセル間隔を bp に換算
+    min_bp_step = min_pixel_step * shrink_factor / scale
+    
+    # range_size に基づいて、最大でも 2〜3 個の目盛りが出るように調整
+    # （range_size が min_bp_step より小さい場合への対応）
+    adjusted_min_bp_step = min(min_bp_step, range_size / 2) if range_size > 0 else min_bp_step
+    if adjusted_min_bp_step <= 0:
+        adjusted_min_bp_step = 1
+
+    # 1, 2, 5 の倍数の中から、adjusted_min_bp_step 以上の最小の値を探す
+    exponent = math.floor(math.log10(adjusted_min_bp_step))
+    magnitude = 10 ** exponent
+    
+    candidates = [1 * magnitude, 2 * magnitude, 5 * magnitude, 10 * magnitude]
+    step = 10 * magnitude
+    for c in candidates:
+        if c >= adjusted_min_bp_step:
+            step = c
+            break
+            
+    step = int(step)
+    
+    # 単位の決定
+    if step >= 1_000_000:
+        return step, "Mb", 1_000_000
+    elif step >= 1_000:
+        return step, "kb", 1000
+    else:
+        return step, "bp", 1
+
+
+def get_scale_bar_params(max_length_bp: int) -> tuple:
+    """
+    最大遺伝子長に応じて適切なスケールバーの長さと単位を返す
 
     Args:
-        range_size: 表示範囲のサイズ（bp）
+        max_length_bp: 最大遺伝子長（bp）
 
     Returns:
-        (tick_interval, unit_label, divisor)
-        例: (1000, "kb", 1000) → 1kbごとに目盛り、ラベルは "1 kb", "2 kb"...
+        (scale_bar_bp, unit_label, divisor)
+        例: (1000, "kb", 1000) → 1kbのスケールバー
     """
-    if range_size >= 10_000_000:  # 10Mb以上
-        return 1_000_000, "Mb", 1_000_000
-    elif range_size >= 1_000_000:  # 1Mb以上
-        return 100_000, "kb", 1000
-    elif range_size >= 100_000:   # 100kb以上
+    if max_length_bp >= 100_000:   # 100kb以上
         return 10_000, "kb", 1000
-    elif range_size >= 10_000:    # 10kb以上
+    elif max_length_bp >= 10_000:  # 10kb以上
         return 1_000, "kb", 1000
-    elif range_size >= 1_000:     # 1kb以上
+    elif max_length_bp >= 1_000:   # 1kb以上
         return 100, "bp", 1
+    elif max_length_bp >= 100:     # 100bp以上
+        return 50, "bp", 1
     else:
         return 10, "bp", 1
+
+
+def draw_scale_bar(dwg, x_pos: float, y_pos: float, scale_bar_bp: int,
+                   shrink_factor: float, scale: float, unit_label: str, divisor: int):
+    """
+    スケールバーを描画する
+
+    Args:
+        dwg: svgwrite.Drawingオブジェクト
+        x_pos: スケールバーの左端X座標
+        y_pos: スケールバーのY座標
+        scale_bar_bp: スケールバーの長さ（bp）
+        shrink_factor: 座標の縮小係数
+        scale: スケール倍率
+        unit_label: 単位ラベル（"bp" or "kb"）
+        divisor: 単位変換用の除数
+    """
+    # スケールバーの幅をピクセルで計算
+    bar_width = (scale_bar_bp / shrink_factor) * scale
+    bar_height = 6  # 縦線の高さ
+
+    # 水平線
+    dwg.add(dwg.line(
+        start=(x_pos, y_pos),
+        end=(x_pos + bar_width, y_pos),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # 左端の縦線
+    dwg.add(dwg.line(
+        start=(x_pos, y_pos - bar_height / 2),
+        end=(x_pos, y_pos + bar_height / 2),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # 右端の縦線
+    dwg.add(dwg.line(
+        start=(x_pos + bar_width, y_pos - bar_height / 2),
+        end=(x_pos + bar_width, y_pos + bar_height / 2),
+        stroke='black',
+        stroke_width=1.5
+    ))
+
+    # ラベル
+    if divisor == 1:
+        label_text = f"{scale_bar_bp} {unit_label}"
+    else:
+        label_text = f"{scale_bar_bp // divisor} {unit_label}"
+
+    dwg.add(dwg.text(
+        label_text,
+        insert=(x_pos + bar_width / 2, y_pos - 8),
+        font_size='11px',
+        fill='black',
+        text_anchor='middle'
+    ))
 
 
 # =====================
@@ -149,6 +243,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             y_line = y_pos + height_feature // 2
             mid_x = x_start + (x_end - x_start) / 2
             offset = 10  # くの字の高さ
+            del_color = feat.attributes.get('color', 'black')
             dwg.add(
                 dwg.polyline(
                     points=[
@@ -157,7 +252,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                         (x_end, y_line)
                     ],
                     fill='none',
-                    stroke='black',
+                    stroke=del_color,
                     stroke_width=1,
                     stroke_dasharray="2,2"
                 )
@@ -366,6 +461,7 @@ def draw_multiple_gene_structures(
     genes: List[GeneStructure],
     labels: List[str],
     show_labels: bool = True,
+    show_scale: bool = False,
     gene_spacing: int = 50,
     label_spacing: int = 10,
     scale: float = 2,
@@ -373,7 +469,10 @@ def draw_multiple_gene_structures(
     utr_color: str = None,
     exon_color: str = None,
     line_color: str = None,
-    domain_color: str = None
+    domain_color: str = None,
+    coordinate_mode: str = "relative",
+    anchor: int = 0,
+    strand: str = "+"
 ) -> str:
     """
     複数の遺伝子構造を縦並びで1つのSVGに描画する
@@ -382,6 +481,7 @@ def draw_multiple_gene_structures(
         genes: 描画するGeneStructureのリスト
         labels: 各遺伝子のラベル（transcript_id等）
         show_labels: ラベルを表示するかどうか
+        show_scale: スケールバーを表示するかどうか
         gene_spacing: 遺伝子間の余白（ピクセル）
         label_spacing: ラベルと遺伝子構造の余白（ピクセル）
         scale: スケール倍率
@@ -390,6 +490,9 @@ def draw_multiple_gene_structures(
         exon_color: Exon/CDSの色
         line_color: イントロンの色
         domain_color: ドメインの色
+        coordinate_mode: 座標モード ("relative" or "absolute")
+        anchor: 基準となるゲノム座標（absoluteモード用）
+        strand: ストランド方向（absoluteモードの座標軸ラベル用）
 
     Returns:
         SVG文字列
@@ -429,13 +532,73 @@ def draw_multiple_gene_structures(
     global_max_x = max(max_x_coords) if max_x_coords else LEFT_MARGIN + label_width
     canvas_width = global_max_x + extra_padding + 300
 
+    # スケールバー（座標軸）の設定
+    scale_bar_height = 40 if show_scale else 0
+    top_margin = 30 + scale_bar_height
+
     # Canvas高さ = (遺伝子高さ + 余白) × 遺伝子数 + 上下マージン
     gene_height = height_feature + 10  # 遺伝子1つ分の高さ
-    top_margin = 30
     canvas_height = top_margin + len(genes) * (gene_height + gene_spacing) + 150  # 凡例用スペース
 
     # メモリ上にSVGを作成
     dwg = svgwrite.Drawing(size=(canvas_width, canvas_height))
+
+    # === スケールバー（座標軸）の描画 ===
+    if show_scale:
+        max_gene_length_bp = 0
+        for features, shift, max_end in gene_data:
+            if features:
+                gene_length = int(max_end * shrink_factor)
+                if gene_length > max_gene_length_bp:
+                    max_gene_length_bp = gene_length
+
+        if max_gene_length_bp > 0:
+            axis_y = top_margin - 25
+            axis_width = (max_gene_length_bp / shrink_factor) * scale
+            
+            # 座標軸の線
+            dwg.add(dwg.line(
+                start=(LEFT_MARGIN + label_width, axis_y),
+                end=(LEFT_MARGIN + label_width + axis_width, axis_y),
+                stroke='black',
+                stroke_width=1
+            ))
+
+            # 目盛りの計算
+            tick_interval, unit_label, divisor = get_tick_params(max_gene_length_bp, shrink_factor, scale)
+            
+            # coordinate_mode に応じて開始座標を決定
+            display_start = anchor if coordinate_mode == "absolute" else 0
+            
+            for offset_bp in range(0, max_gene_length_bp + 1, tick_interval):
+                x = LEFT_MARGIN + label_width + (offset_bp / shrink_factor) * scale
+                
+                # 目盛り線
+                dwg.add(dwg.line(
+                    start=(x, axis_y),
+                    end=(x, axis_y + 5),
+                    stroke='black',
+                    stroke_width=1
+                ))
+
+                # ラベル
+                if coordinate_mode == "absolute" and strand == '-':
+                    tick_val = display_start - offset_bp
+                else:
+                    tick_val = display_start + offset_bp
+
+                if divisor == 1:
+                    tick_label = f"{tick_val} {unit_label}"
+                else:
+                    tick_label = f"{tick_val // divisor} {unit_label}"
+                
+                dwg.add(dwg.text(
+                    tick_label,
+                    insert=(x, axis_y - 5),
+                    font_size='9px',
+                    fill='black',
+                    text_anchor='middle'
+                ))
 
     # 各遺伝子を描画
     for idx, (gene, label) in enumerate(zip(genes, labels)):
@@ -538,9 +701,11 @@ def draw_multiple_gene_structures(
             if hasattr(ins, 'position'):
                 ins_pos = ins.position
                 ins_length = getattr(ins, 'length', 1)
+                ins_color = getattr(ins, 'color', 'black')
             else:
                 ins_pos = ins
                 ins_length = 1
+                ins_color = "black"
 
             x = LEFT_MARGIN + label_width + (ins_pos / shrink_factor + shift / shrink_factor) * scale
             base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
@@ -552,8 +717,8 @@ def draw_multiple_gene_structures(
                         (x + base_width / 2, y_triangle),
                         (x, y_triangle + triangle_height)
                     ],
-                    fill="black",
-                    stroke="black",
+                    fill=ins_color,
+                    stroke=ins_color,
                     stroke_width=1.5
                 )
             )
@@ -564,13 +729,20 @@ def draw_multiple_gene_structures(
         y_snp_top = y_pos - snp_extend_up
         y_snp_bottom = y_pos + height_feature + snp_extend_down
 
-        for snp_pos in getattr(gene, "snps", []):
+        for snp in getattr(gene, "snps", []):
+            if hasattr(snp, "position"):
+                snp_pos = snp.position
+                snp_color = getattr(snp, "color", "black")
+            else:
+                snp_pos = snp
+                snp_color = "black"
+
             x = LEFT_MARGIN + label_width + (snp_pos / shrink_factor + shift / shrink_factor) * scale
             dwg.add(
                 dwg.line(
                     start=(x, y_snp_top),
                     end=(x, y_snp_bottom),
-                    stroke="black",
+                    stroke=snp_color,
                     stroke_width=1.2
                 )
             )
@@ -823,7 +995,7 @@ def draw_region_gene_structures(
     ))
 
     # 目盛りを描画
-    tick_interval, unit_label, divisor = get_tick_params(draw_end - draw_start)
+    tick_interval, unit_label, divisor = get_tick_params(draw_end - draw_start, shrink_factor, scale)
     first_tick = ((draw_start // tick_interval) + 1) * tick_interval
 
     for tick_pos in range(first_tick, draw_end + 1, tick_interval):
@@ -1023,16 +1195,20 @@ def draw_region_gene_structures(
     # 全遺伝子のfeature typeを収集
     all_feature_types = set()
     all_domain_colors = {}
-    has_insertions = False
-    has_snps = False
+    unique_insertion_colors = set()
+    unique_snp_colors = set()
+    unique_deletion_colors = set()
+
     for gene in genes:
         for f in gene.get_sorted_features():
             all_feature_types.add(f.feature_type)
+            if f.feature_type == 'deletion':
+                unique_deletion_colors.add(f.attributes.get('color', 'black'))
         all_domain_colors.update(getattr(gene, 'domain_color_map', {}))
-        if getattr(gene, "insertions", []):
-            has_insertions = True
-        if getattr(gene, "snps", []):
-            has_snps = True
+        for ins in getattr(gene, "insertions", []):
+            unique_insertion_colors.add(getattr(ins, 'color', 'black'))
+        for snp in getattr(gene, "snps", []):
+            unique_snp_colors.add(getattr(snp, 'color', 'black'))
 
     # 凡例アイテムを動的に構築
     legend_items = []
@@ -1047,12 +1223,20 @@ def draw_region_gene_structures(
         legend_items.append(('three_prime_UTR', "3' UTR", utr_color))
     if 'intron' in all_feature_types:
         legend_items.append(('intron', 'Intron', line_color))
-    if 'deletion' in all_feature_types:
-        legend_items.append(('deletion', 'Deletion', None))
-    if has_insertions:
-        legend_items.append(('insertion', 'Insertion', None))
-    if has_snps:
-        legend_items.append(('snp', 'SNP', None))
+    
+    # バリアントは色ごとに表示（黒以外がある場合）
+    for color in sorted(list(unique_deletion_colors)):
+        label = "Deletion" if color == "black" else f"Deletion ({color})"
+        legend_items.append(('deletion', label, color))
+    
+    for color in sorted(list(unique_insertion_colors)):
+        label = "Insertion" if color == "black" else f"Insertion ({color})"
+        legend_items.append(('insertion', label, color))
+    
+    for color in sorted(list(unique_snp_colors)):
+        label = "SNP" if color == "black" else f"SNP ({color})"
+        legend_items.append(('snp', label, color))
+
     # ドメインは名前ごとに個別表示
     for domain_name, color in all_domain_colors.items():
         legend_items.append(('domain', domain_name, color))
@@ -1067,28 +1251,31 @@ def draw_region_gene_structures(
         if feat_key == 'deletion':
             # くの字型
             y_mid = y_legend + box_size // 2
+            stroke_color = color if color else 'black'
             dwg.add(dwg.polyline(
                 points=[(legend_x, y_mid), (legend_x + box_size // 2, y_mid - 6), (legend_x + box_size, y_mid)],
                 fill='none',
-                stroke='black',
+                stroke=stroke_color,
                 stroke_width=1.5,
                 stroke_dasharray="2,2"
             ))
         elif feat_key == 'insertion':
             # 逆三角形
             y_mid = y_legend + box_size // 2
+            fill_color = color if color else 'black'
             dwg.add(dwg.polygon(
                 points=[(legend_x, y_mid - 4), (legend_x + box_size, y_mid - 4), (legend_x + box_size // 2, y_mid + 4)],
-                fill='black',
-                stroke='black',
+                fill=fill_color,
+                stroke=fill_color,
                 stroke_width=1.5
             ))
         elif feat_key == 'snp':
             # 縦線
+            stroke_color = color if color else 'black'
             dwg.add(dwg.line(
                 start=(legend_x + box_size // 2, y_legend),
                 end=(legend_x + box_size // 2, y_legend + box_size),
-                stroke='black',
+                stroke=stroke_color,
                 stroke_width=1.2
             ))
         elif feat_key == 'intron':

@@ -41,6 +41,7 @@ import { RegionSelector } from "./components/RegionSelector";
 import SvgViewer from "./components/SvgViewer";
 import {
   type GeneStructureInfo as ApiGeneStructureInfo,
+  CoordinateMode,
   type GeneStructureRequest,
   type GenerateSvgBlobError,
   type HTTPValidationError,
@@ -53,8 +54,30 @@ import { parseFile, parseFileContent } from "./utils/gtf";
 type UIState = "upload" | "select" | "preview";
 
 type InsertionInput = {
+  id: string;
   position: number | undefined;
   length: number | undefined;
+  color: string;
+};
+
+type SnpInput = {
+  id: string;
+  position: number | undefined;
+  color: string;
+};
+
+type DeletionRegionInput = {
+  id: string;
+  start: number | undefined;
+  end: number | undefined;
+  color: string;
+};
+
+type ProteinDomainInput = {
+  id: string;
+  start: number | undefined;
+  end: number | undefined;
+  name: string;
 };
 
 type MultiGeneStructureRequest = {
@@ -67,13 +90,15 @@ type MultiGeneStructureRequest = {
   };
   gene_structures: ApiGeneStructureInfo[];
   show_labels: boolean;
+  show_scale: boolean;
   gene_spacing: number;
   label_spacing: number;
-  deletion_regions?: number[][];
-  insertions?: { position: number; length: number }[];
-  snps?: number[];
+  deletion_regions?: { start: number; end: number; color: string }[];
+  insertions?: { position: number; length: number; color: string }[];
+  snps?: { position: number; color: string }[];
   domains?: { start: number; end: number; name: string }[];
   protein_domains?: { start: number; end: number; name: string }[];
+  coordinate_mode?: CoordinateMode;
 };
 
 type RegionGeneStructureRequest = {
@@ -258,6 +283,7 @@ export default function Home() {
 
   // Display options
   const [showLabels, setShowLabels] = useState(true);
+  const [showScale, setShowScale] = useState(false);
   const [geneSpacing, setGeneSpacing] = useState(50);
   const [labelSpacing, setLabelSpacing] = useState(10);
 
@@ -292,20 +318,19 @@ export default function Home() {
     filteredByRegion.length > 0 && filteredByRegion.length <= 30;
 
   // Deletion, insertion, and domain settings
-  const [deletionRegions, setDeletionRegions] = useState<
-    Array<[number | undefined, number | undefined]>
-  >([]);
-  const [insertions, setInsertions] = useState<Array<InsertionInput>>([]);
-  const [proteinDomains, setProteinDomains] = useState<
-    Array<{
-      start: number | undefined;
-      end: number | undefined;
-      name: string;
-    }>
-  >([]);
-
-  const [snpPositions, setSnpPositions] = useState<Array<number | undefined>>(
+  const [deletionRegions, setDeletionRegions] = useState<DeletionRegionInput[]>(
     [],
+  );
+  const [insertions, setInsertions] = useState<Array<InsertionInput>>([]);
+  const [proteinDomains, setProteinDomains] = useState<ProteinDomainInput[]>(
+    [],
+  );
+
+  const [snpPositions, setSnpPositions] = useState<SnpInput[]>([]);
+
+  // 座標モード（relative: 相対座標、absolute: 絶対座標）
+  const [coordinateMode, setCoordinateMode] = useState<CoordinateMode>(
+    CoordinateMode.relative,
   );
 
   // Debounced versions of detail settings (500ms delay to reduce API calls during input)
@@ -379,23 +404,29 @@ export default function Home() {
       },
       gene_structures: selectedGeneStructures as ApiGeneStructureInfo[],
       show_labels: showLabels,
+      show_scale: showScale,
       gene_spacing: geneSpacing,
       label_spacing: labelSpacing,
       deletion_regions: [],
       domains: [],
+      coordinate_mode: coordinateMode,
     };
 
     // Add deletion regions if any (filter out invalid regions)
     // Use debounced values to reduce API calls during input
     const validDeletionRegions = debouncedDeletionRegions
       .filter(
-        (region): region is [number, number] =>
-          region[0] !== undefined &&
-          region[1] !== undefined &&
-          region[0] > 0 &&
-          region[1] > 0,
+        (region) =>
+          region.start !== undefined &&
+          region.end !== undefined &&
+          region.start > 0 &&
+          region.end > 0,
       )
-      .map(([start, end]) => [start, end]);
+      .map((region) => ({
+        start: region.start as number,
+        end: region.end as number,
+        color: region.color,
+      }));
 
     if (validDeletionRegions.length > 0) {
       requestData.deletion_regions = validDeletionRegions;
@@ -405,13 +436,17 @@ export default function Home() {
     // Use debounced values to reduce API calls during input
     const validInsertions = debouncedInsertions
       .filter(
-        (ins): ins is { position: number; length: number } =>
+        (ins) =>
           ins.position !== undefined &&
           ins.length !== undefined &&
           ins.position > 0 &&
           ins.length > 0,
       )
-      .map(({ position, length }) => ({ position, length }));
+      .map((ins) => ({
+        position: ins.position as number,
+        length: ins.length as number,
+        color: ins.color,
+      }));
 
     if (validInsertions.length > 0) {
       requestData.insertions = validInsertions;
@@ -419,9 +454,12 @@ export default function Home() {
 
     // Add SNP positions if any (filter out invalid positions)
     // Use debounced values to reduce API calls during input
-    const validSnpPositions = debouncedSnpPositions.filter(
-      (pos): pos is number => pos !== undefined && pos > 0,
-    );
+    const validSnpPositions = debouncedSnpPositions
+      .filter((snp) => snp.position !== undefined && snp.position > 0)
+      .map((snp) => ({
+        position: snp.position as number,
+        color: snp.color,
+      }));
 
     if (validSnpPositions.length > 0) {
       requestData.snps = validSnpPositions;
@@ -431,14 +469,20 @@ export default function Home() {
     // Use debounced values to reduce API calls during input
     const validProteinDomains = debouncedProteinDomains
       .filter(
-        (domain): domain is { start: number; end: number; name: string } =>
+        (
+          domain,
+        ): domain is ProteinDomainInput & { start: number; end: number } =>
           domain.start !== undefined &&
           domain.end !== undefined &&
           domain.start > 0 &&
           domain.end > 0 &&
           domain.name.trim() !== "",
       )
-      .map(({ start, end, name }) => ({ start, end, name }));
+      .map(({ start, end, name }) => ({
+        start: start as number,
+        end: end as number,
+        name,
+      }));
 
     if (validProteinDomains.length > 0) {
       requestData.protein_domains = validProteinDomains;
@@ -874,6 +918,15 @@ export default function Home() {
                         setShowLabels(event.currentTarget.checked)
                       }
                     />
+                    {selectionMode === "transcript" && (
+                      <Switch
+                        label="Show scale bar"
+                        checked={showScale}
+                        onChange={(event) =>
+                          setShowScale(event.currentTarget.checked)
+                        }
+                      />
+                    )}
                     {selectedTranscripts.length >= 2 && (
                       <Stack gap="xs" pb="md">
                         <Text size="sm" fw={500}>
@@ -962,8 +1015,278 @@ export default function Home() {
                     Detail Settings
                   </Title>
                   <Stack gap="md">
-                    <Stack>
-                      <Text size="sm" fw={500} mb="xs">
+                    <Stack gap={0}>
+                      <Text size="sm" fw={500}>
+                        Coordinate Mode:
+                      </Text>
+                      <SegmentedControl
+                        value={coordinateMode}
+                        onChange={(value) =>
+                          setCoordinateMode(value as CoordinateMode)
+                        }
+                        data={[
+                          {
+                            label: "Relative (1-based)",
+                            value: CoordinateMode.relative,
+                          },
+                          {
+                            label: "Absolute (Chromosomal)",
+                            value: CoordinateMode.absolute,
+                          },
+                        ]}
+                        fullWidth
+                      />
+                      <Text size="xs" c="dimmed">
+                        {coordinateMode === CoordinateMode.relative
+                          ? "Enter positions relative to transcript start (1 = first base of exon)"
+                          : "Enter chromosomal positions (e.g., chr1:12345)"}
+                      </Text>
+                    </Stack>
+
+                    <Divider />
+
+                    <Stack gap={0}>
+                      <Text size="sm" fw={500}>
+                        SNP (
+                        {coordinateMode === CoordinateMode.relative
+                          ? "relative"
+                          : "chromosomal"}{" "}
+                        coordinates):
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        {coordinateMode === CoordinateMode.relative
+                          ? "Enter relative positions of SNPs (e.g., 150, 800)"
+                          : "Enter chromosomal positions of SNPs (e.g., 12345678)"}
+                      </Text>
+                      <Stack gap="xs">
+                        {snpPositions.map((snp, idx) => (
+                          <Group key={snp.id} gap="xs">
+                            <DelayedNumberInput
+                              placeholder="e.g., 150"
+                              value={snp.position}
+                              onChange={(val) => {
+                                const newPositions = [...snpPositions];
+                                newPositions[idx].position =
+                                  val === "" ? undefined : Number(val);
+                                setSnpPositions(newPositions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <ColorInput
+                              value={snp.color}
+                              onChange={(val) => {
+                                const newPositions = [...snpPositions];
+                                newPositions[idx].color = val;
+                                setSnpPositions(newPositions);
+                              }}
+                              style={{ width: 100 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setSnpPositions(
+                                  snpPositions.filter((s) => s.id !== snp.id),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSnpPositions([
+                              ...snpPositions,
+                              {
+                                id: Math.random().toString(36).substring(2, 9),
+                                position: undefined,
+                                color: "#000000",
+                              },
+                            ]);
+                          }}
+                        >
+                          Add SNP
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack gap={0}>
+                      <Text size="sm" fw={500}>
+                        Insertions (
+                        {coordinateMode === CoordinateMode.relative
+                          ? "relative"
+                          : "chromosomal"}{" "}
+                        coordinates):
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        {coordinateMode === CoordinateMode.relative
+                          ? "Enter relative position and length (bp) of insertions"
+                          : "Enter chromosomal position and length (bp) of insertions"}
+                      </Text>
+                      <Stack gap="xs">
+                        {insertions.map((ins, idx) => (
+                          <Group key={ins.id} gap="xs" align="flex-end">
+                            <DelayedNumberInput
+                              label={idx === 0 ? "Position" : undefined}
+                              placeholder="e.g., 100"
+                              value={ins.position}
+                              onChange={(val) => {
+                                const newInsertions = [...insertions];
+                                newInsertions[idx].position =
+                                  val === "" ? undefined : Number(val);
+                                setInsertions(newInsertions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <DelayedNumberInput
+                              label={idx === 0 ? "Length (bp)" : undefined}
+                              placeholder="e.g., 50"
+                              value={ins.length}
+                              onChange={(val) => {
+                                const newInsertions = [...insertions];
+                                newInsertions[idx].length =
+                                  val === "" ? undefined : Number(val);
+                                setInsertions(newInsertions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <ColorInput
+                              value={ins.color}
+                              onChange={(val) => {
+                                const newInsertions = [...insertions];
+                                newInsertions[idx].color = val;
+                                setInsertions(newInsertions);
+                              }}
+                              style={{ width: 100 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setInsertions(
+                                  insertions.filter((i) => i.id !== ins.id),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setInsertions([
+                              ...insertions,
+                              {
+                                id: Math.random().toString(36).substring(2, 9),
+                                position: undefined,
+                                length: undefined,
+                                color: "#000000",
+                              },
+                            ]);
+                          }}
+                        >
+                          Add Insertion
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack gap={0}>
+                      <Text size="sm" fw={500}>
+                        Deletions (
+                        {coordinateMode === CoordinateMode.relative
+                          ? "relative"
+                          : "chromosomal"}{" "}
+                        coordinates):
+                      </Text>
+                      <Text size="xs" c="dimmed" mb="xs">
+                        {coordinateMode === CoordinateMode.relative
+                          ? "Enter relative positions (e.g., start: 12, end: 2000)"
+                          : "Enter chromosomal positions (e.g., start: 12345678, end: 12347678)"}
+                      </Text>
+                      <Stack gap="xs">
+                        {deletionRegions.map((region, idx) => (
+                          <Group key={region.id} gap="xs">
+                            <DelayedNumberInput
+                              placeholder="e.g., 12"
+                              value={region.start}
+                              onChange={(val) => {
+                                const newRegions = [...deletionRegions];
+                                newRegions[idx].start =
+                                  val === "" ? undefined : Number(val);
+                                setDeletionRegions(newRegions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <DelayedNumberInput
+                              placeholder="e.g., 2000"
+                              value={region.end}
+                              onChange={(val) => {
+                                const newRegions = [...deletionRegions];
+                                newRegions[idx].end =
+                                  val === "" ? undefined : Number(val);
+                                setDeletionRegions(newRegions);
+                              }}
+                              min={1}
+                              style={{ flex: 1 }}
+                            />
+                            <ColorInput
+                              value={region.color}
+                              onChange={(val) => {
+                                const newRegions = [...deletionRegions];
+                                newRegions[idx].color = val;
+                                setDeletionRegions(newRegions);
+                              }}
+                              style={{ width: 100 }}
+                            />
+                            <Button
+                              variant="outline"
+                              color="red"
+                              size="sm"
+                              onClick={() => {
+                                setDeletionRegions(
+                                  deletionRegions.filter(
+                                    (r) => r.id !== region.id,
+                                  ),
+                                );
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Group>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDeletionRegions([
+                              ...deletionRegions,
+                              {
+                                id: Math.random().toString(36).substring(2, 9),
+                                start: undefined,
+                                end: undefined,
+                                color: "#000000",
+                              },
+                            ]);
+                          }}
+                        >
+                          Add Deletion
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack gap={0}>
+                      <Text size="sm" fw={500}>
                         Protein Domains (amino acid coordinates):
                       </Text>
                       <Text size="xs" c="dimmed" mb="xs">
@@ -971,11 +1294,7 @@ export default function Home() {
                       </Text>
                       <Stack gap="xs">
                         {proteinDomains.map((domain, idx) => (
-                          <Group
-                            key={`protein-domain-${idx}-${domain.start}-${domain.end}`}
-                            gap="xs"
-                            align="flex-end"
-                          >
+                          <Group key={domain.id} gap="xs" align="flex-end">
                             <DelayedNumberInput
                               label={idx === 0 ? "Start" : undefined}
                               placeholder="e.g., 1"
@@ -1019,7 +1338,9 @@ export default function Home() {
                               size="sm"
                               onClick={() => {
                                 setProteinDomains(
-                                  proteinDomains.filter((_, i) => i !== idx),
+                                  proteinDomains.filter(
+                                    (d) => d.id !== domain.id,
+                                  ),
                                 );
                               }}
                             >
@@ -1033,194 +1354,16 @@ export default function Home() {
                           onClick={() => {
                             setProteinDomains([
                               ...proteinDomains,
-                              { start: undefined, end: undefined, name: "" },
+                              {
+                                id: Math.random().toString(36).substring(2, 9),
+                                start: undefined,
+                                end: undefined,
+                                name: "",
+                              },
                             ]);
                           }}
                         >
                           Add Protein Domain
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Stack>
-                      <Text size="sm" fw={500} mb="xs">
-                        Deletion Regions (genomic coordinates):
-                      </Text>
-                      <Text size="xs" c="dimmed" mb="xs">
-                        Enter positive integers (e.g., start: 12, end: 2000)
-                      </Text>
-                      <Stack gap="xs">
-                        {deletionRegions.map((region, idx) => (
-                          <Group
-                            key={`deletion-${idx}-${region[0]}-${region[1]}`}
-                            gap="xs"
-                          >
-                            <DelayedNumberInput
-                              placeholder="e.g., 12"
-                              value={region[0]}
-                              onChange={(val) => {
-                                const newRegions = [...deletionRegions];
-                                newRegions[idx][0] =
-                                  val === "" ? undefined : Number(val);
-                                setDeletionRegions(newRegions);
-                              }}
-                              min={1}
-                              style={{ flex: 1 }}
-                            />
-                            <DelayedNumberInput
-                              placeholder="e.g., 2000"
-                              value={region[1]}
-                              onChange={(val) => {
-                                const newRegions = [...deletionRegions];
-                                newRegions[idx][1] =
-                                  val === "" ? undefined : Number(val);
-                                setDeletionRegions(newRegions);
-                              }}
-                              min={1}
-                              style={{ flex: 1 }}
-                            />
-                            <Button
-                              variant="outline"
-                              color="red"
-                              size="sm"
-                              onClick={() => {
-                                setDeletionRegions(
-                                  deletionRegions.filter((_, i) => i !== idx),
-                                );
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          </Group>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setDeletionRegions([
-                              ...deletionRegions,
-                              [undefined, undefined],
-                            ]);
-                          }}
-                        >
-                          Add Deletion Region
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Stack>
-                      <Text size="sm" fw={500} mb="xs">
-                        Insertions (genomic coordinates):
-                      </Text>
-                      <Text size="xs" c="dimmed" mb="xs">
-                        Enter position and length (bp) of insertions
-                      </Text>
-                      <Stack gap="xs">
-                        {insertions.map((ins, idx) => (
-                          <Group
-                            key={`insertion-${idx}-${ins.position}-${ins.length}`}
-                            gap="xs"
-                            align="flex-end"
-                          >
-                            <DelayedNumberInput
-                              label={idx === 0 ? "Position" : undefined}
-                              placeholder="e.g., 100"
-                              value={ins.position}
-                              onChange={(val) => {
-                                const newInsertions = [...insertions];
-                                newInsertions[idx].position =
-                                  val === "" ? undefined : Number(val);
-                                setInsertions(newInsertions);
-                              }}
-                              min={1}
-                              style={{ flex: 1 }}
-                            />
-                            <DelayedNumberInput
-                              label={idx === 0 ? "Length (bp)" : undefined}
-                              placeholder="e.g., 50"
-                              value={ins.length}
-                              onChange={(val) => {
-                                const newInsertions = [...insertions];
-                                newInsertions[idx].length =
-                                  val === "" ? undefined : Number(val);
-                                setInsertions(newInsertions);
-                              }}
-                              min={1}
-                              style={{ flex: 1 }}
-                            />
-                            <Button
-                              variant="outline"
-                              color="red"
-                              size="sm"
-                              onClick={() => {
-                                setInsertions(
-                                  insertions.filter((_, i) => i !== idx),
-                                );
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          </Group>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setInsertions([
-                              ...insertions,
-                              { position: undefined, length: undefined },
-                            ]);
-                          }}
-                        >
-                          Add Insertion
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Stack>
-                      <Text size="sm" fw={500} mb="xs">
-                        SNP Positions (genomic coordinates):
-                      </Text>
-                      <Text size="xs" c="dimmed" mb="xs">
-                        Enter positions of SNPs (e.g., 150, 800)
-                      </Text>
-                      <Stack gap="xs">
-                        {snpPositions.map((pos, idx) => (
-                          <Group key={`snp-${idx}-${pos}`} gap="xs">
-                            <DelayedNumberInput
-                              placeholder="e.g., 150"
-                              value={pos}
-                              onChange={(val) => {
-                                const newPositions = [...snpPositions];
-                                newPositions[idx] =
-                                  val === "" ? undefined : Number(val);
-                                setSnpPositions(newPositions);
-                              }}
-                              min={1}
-                              style={{ flex: 1 }}
-                            />
-                            <Button
-                              variant="outline"
-                              color="red"
-                              size="sm"
-                              onClick={() => {
-                                setSnpPositions(
-                                  snpPositions.filter((_, i) => i !== idx),
-                                );
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          </Group>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSnpPositions([...snpPositions, undefined]);
-                          }}
-                        >
-                          Add SNP Position
                         </Button>
                       </Stack>
                     </Stack>
