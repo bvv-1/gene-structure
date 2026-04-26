@@ -19,7 +19,7 @@ Hashimoto, yamada and Izawa. in prepareing.
 - Output in SVG format
 - Three interfaces: Web UI, REST API, and CLI
 
-## Start the Web Application
+## Start the Web Application 🚀
 You can immediately try the web application here. No installation is required. Simply open the link in your browser to start visualizing gene structures.
 https://gene-structure.vercel.app/
 
