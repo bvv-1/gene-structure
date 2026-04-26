@@ -10,8 +10,6 @@
 ## Citation
 Hashimoto, yamada and Izawa. in prepareing.
 
-
-
 ## Features
 
 - Load gene structures from GFF3 files
@@ -62,15 +60,13 @@ Open http://localhost:3000 in your browser to view the application.
 source venv/bin/activate
 python3 -m uvicorn api.index:app --reload --host 127.0.0.1 --port 8000
 ```
-
-# API documentation
+You can check API documentation here:
 http://127.0.0.1:8000/api/py/docs
 
 ## Usage
 
 ### Web UI
-
-# Access via browser
+Access here via browser: 
 https://gene-structure.vercel.app/
 
 ### REST API
@@ -91,28 +87,27 @@ curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg"   -H "Co
 
 #### API Parameters
 
-- gene_structure (required): Gene structure object
-  # transcript-level annotation
-  - transcript_id
-  - seq_id
-  - strand (+ or -)
-  - exons
-  - cds
-  - five_prime_utrs
-  - three_prime_utrs
-
-# optional annotations
-- domains (optional)
-- deletion_regions (optional)
+- `gene_structure` (required): Gene structure object
+- `transcript_id` : Trasncript ID
+- `seq_id` : Sequence ID
+- `strand` : Strand direction (`+` or `-`)
+- `exons` : List of exons `[{"start": number, "end": number}, ...]`
+- `cds` : List of CSD `[{"start": number, "end": number}, ...]`
+- `five_prime_utrs` : List of 5'UTR
+- `three_prime_utrs` : List of 3'UTR
+- `domains` (optional) : List of domain regions `[{"start": 200, "end": 500, "name": "Kinase", "color": "red"}, ...]`
+- `deletion_regions` (optional) : List of deletion regions `[[start, end], ...]`
 
 ### CLI Tool
+
+Running `api/original.py` directly, you can draw gene structures from CLI.
 
 ```bash
 source venv/bin/activate
 python3 api/original.py
 ```
+Parameters are defined inside api/original.py
 
-# Parameters are defined inside api/original.py
 ```python
 gff_file = './geneSTRUCTURE_v2/gff3/IRGSP-1.0_representative/transcripts.gff'
 transcript_id = 'Os06t0160700-01'
@@ -122,9 +117,7 @@ domains = [
     {'start': 600, 'end': 800, 'name': 'ATPase', 'color': 'blue'}
 ]
 ```
-
-# Output file
-{transcript_id}_with_relative_deletions.svg
+You can get `{transcript_id}_with_relative_deletions.svg` as output file.
 
 ## Project Structure
 
