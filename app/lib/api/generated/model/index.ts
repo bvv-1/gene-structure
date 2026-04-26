@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './coordinateMode';
 export * from './drawSettings';
 export * from './geneStructureInfo';
 export * from './geneStructureInfoAttributes';

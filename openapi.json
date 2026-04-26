@@ -135,6 +135,15 @@
   },
   "components": {
     "schemas": {
+      "CoordinateMode": {
+        "type": "string",
+        "enum": [
+          "relative",
+          "absolute"
+        ],
+        "title": "CoordinateMode",
+        "description": "\u5ea7\u6a19\u30e2\u30fc\u30c9\u306e\u5217\u6319\u578b"
+      },
       "DrawSettings": {
         "properties": {
           "mode": {
@@ -400,6 +409,14 @@
             "type": "array",
             "title": "Insertions",
             "default": []
+          },
+          "coordinate_mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CoordinateMode"
+              }
+            ],
+            "default": "relative"
           }
         },
         "type": "object",
@@ -458,6 +475,11 @@
             "title": "Show Labels",
             "default": true
           },
+          "show_scale": {
+            "type": "boolean",
+            "title": "Show Scale",
+            "default": false
+          },
           "gene_spacing": {
             "type": "integer",
             "title": "Gene Spacing",
@@ -510,6 +532,14 @@
             "type": "array",
             "title": "Insertions",
             "default": []
+          },
+          "coordinate_mode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CoordinateMode"
+              }
+            ],
+            "default": "relative"
           }
         },
         "type": "object",

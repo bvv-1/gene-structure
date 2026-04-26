@@ -4,6 +4,7 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
+import type { CoordinateMode } from './coordinateMode';
 import type { DrawSettings } from './drawSettings';
 import type { GeneStructureInfo } from './geneStructureInfo';
 import type { Insertion } from './insertion';
@@ -17,6 +18,7 @@ export interface MultiGeneStructureRequest {
   draw_settings: DrawSettings;
   gene_structures: GeneStructureInfo[];
   show_labels?: boolean;
+  show_scale?: boolean;
   gene_spacing?: number;
   label_spacing?: number;
   deletion_regions?: number[][];
@@ -24,4 +26,5 @@ export interface MultiGeneStructureRequest {
   protein_domains?: ProteinDomain[];
   snps?: number[];
   insertions?: Insertion[];
+  coordinate_mode?: CoordinateMode;
 }

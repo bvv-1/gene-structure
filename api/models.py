@@ -1,8 +1,16 @@
+from __future__ import annotations
+from enum import Enum
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 
 from .config import DOMAIN_COLOR_PALETTE
 from .color_utils import get_domain_color
+
+
+class CoordinateMode(str, Enum):
+    """座標モードの列挙型"""
+    RELATIVE = "relative"  # 相対座標（デフォルト）
+    ABSOLUTE = "absolute"  # 絶対座標（染色体座標）
 
 
 class GeneFeature:
@@ -21,17 +29,17 @@ class GeneStructure:
         self.seqid = seqid
         self.strand = strand
         self.features = []
-        self.insertions = []
-        self.snps = []
+        self.insertions: List[Insertion] = []
+        self.snps: List[Snp] = []
         self.domain_color_map = {}
 
-    def add_insertions(self, insertions):
-        """Insertionオブジェクトのリストを設定（position, lengthを持つ）"""
+    def add_insertions(self, insertions: List[Insertion]):
+        """Insertionオブジェクトのリストを設定"""
         self.insertions = insertions
 
-    def add_snps(self, snp_positions):
-        """SNP位置のリストを設定"""
-        self.snps = snp_positions
+    def add_snps(self, snps: List[Snp]):
+        """Snpオブジェクトのリストを設定"""
+        self.snps = snps
 
     def add_feature(self, feature: GeneFeature):
         self.features.append(feature)
@@ -128,20 +136,21 @@ class GeneStructure:
             )
             self.features.append(domain_feature)
 
-    def update_features_with_deletions(self, deletion_regions):
+    def update_features_with_deletions(self, deletion_regions: List[Deletion]):
         new_features = []
 
         for i, feature in enumerate(self.features):
             f_start, f_end = feature.start, feature.end
             segments = [(f_start, f_end)]  # featureの元の範囲
 
-            for del_start, del_end in deletion_regions:
+            for deletion in deletion_regions:
+                del_start, del_end = deletion.start, deletion.end
                 updated_segments = []
 
                 if i == 0:
                     new_features.append(GeneFeature(
                         self.seqid, del_start, del_end,
-                        'deletion', self.strand, {}
+                        'deletion', self.strand, {'color': deletion.color}
                     ))
 
                 for seg_start, seg_end in segments:
@@ -173,16 +182,36 @@ class GeneStructure:
         self.features = new_features
 
     def to_relative(self):
-        cds_list = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
-        if not cds_list:
+        # exon-like features including UTRs to find the real start
+        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
+        if not exon_like:
             return 0
-        anchor = min(cds_list, key=lambda f: f.start).start
+
+        anchor = min(exon_like, key=lambda f: f.start).start
+
+        # すべてのフィーチャー（イントロン、ドメイン、デリーション含む）をシフト
         for f in self.features:
             f.start = f.start - anchor + 1
             f.end = f.end - anchor + 1
-        min_start = min(f.start for f in self.features)
-        return min_start
 
+        # SNPと挿入も相対座標に変換
+        if hasattr(self, 'snps') and self.snps:
+            for i in range(len(self.snps)):
+                s = self.snps[i]
+                if hasattr(s, 'position'):
+                    s.position = s.position - anchor + 1
+                else:
+                    self.snps[i] = s - anchor + 1
+        
+        if hasattr(self, 'insertions') and self.insertions:
+            for i in range(len(self.insertions)):
+                ins = self.insertions[i]
+                if hasattr(ins, 'position'):
+                    ins.position = ins.position - anchor + 1
+                else:
+                    self.insertions[i] = ins - anchor + 1
+
+        return 1
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
         """
         アミノ酸座標（1-based）を基に、CDSからcDNA、そしてゲノム座標へと変換して
@@ -251,6 +280,7 @@ class Insertion(BaseModel):
     """挿入位置と長さを指定するモデル"""
     position: int  # 挿入位置（ゲノム座標）
     length: int    # 挿入長（bp）
+    color: Optional[str] = "black"  # 描画色
 
     @model_validator(mode='after')
     def validate_insertion(self):
@@ -258,6 +288,33 @@ class Insertion(BaseModel):
             raise ValueError(f"position must be a positive integer (got {self.position})")
         if self.length <= 0:
             raise ValueError(f"length must be a positive integer (got {self.length})")
+        return self
+
+
+class Snp(BaseModel):
+    """SNP位置と色を指定するモデル"""
+    position: int
+    color: Optional[str] = "black"
+
+    @model_validator(mode='after')
+    def validate_snp(self):
+        if self.position <= 0:
+            raise ValueError(f"position must be a positive integer (got {self.position})")
+        return self
+
+
+class Deletion(BaseModel):
+    """削除領域と色を指定するモデル"""
+    start: int
+    end: int
+    color: Optional[str] = "black"
+
+    @model_validator(mode='after')
+    def validate_deletion(self):
+        if self.start <= 0 or self.end <= 0:
+            raise ValueError(f"coordinates must be positive integers (got start={self.start}, end={self.end})")
+        if self.start >= self.end:
+            raise ValueError(f"start ({self.start}) must be less than end ({self.end})")
         return self
 
 
@@ -325,25 +382,38 @@ class GeneStructureInfo(BaseModel):
 class GeneStructureRequest(BaseModel):
     draw_settings: DrawSettings
     gene_structure: GeneStructureInfo
-    deletion_regions: List[List[int]] = []
+    deletion_regions: List[Deletion] = []
     domains: List[Dict] = []
     protein_domains: List[ProteinDomain] = []
-    snps: List[int] = []
+    snps: List[Snp] = []
     insertions: List[Insertion] = []
+    coordinate_mode: CoordinateMode = CoordinateMode.RELATIVE
 
-    @field_validator('deletion_regions')
+    @field_validator('deletion_regions', mode='before')
     @classmethod
-    def validate_deletion_regions(cls, v):
-        """deletion_regionsのバリデーション"""
-        for i, region in enumerate(v):
-            if len(region) != 2:
-                raise ValueError(f"Deletion region {i} must have exactly 2 elements [start, end]")
-            start, end = region
-            if start <= 0 or end <= 0:
-                raise ValueError(f"Deletion region {i}: coordinates must be positive integers (got start={start}, end={end})")
-            if start >= end:
-                raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
-        return v
+    def validate_deletion_regions_before(cls, v):
+        """[start, end] のリスト形式を Deletion オブジェクトに変換"""
+        new_v = []
+        for item in v:
+            if isinstance(item, list):
+                if len(item) != 2:
+                    raise ValueError(f"Deletion region must have exactly 2 elements [start, end]")
+                new_v.append({"start": item[0], "end": item[1], "color": "black"})
+            else:
+                new_v.append(item)
+        return new_v
+
+    @field_validator('snps', mode='before')
+    @classmethod
+    def validate_snps_before(cls, v):
+        """int のリスト形式を Snp オブジェクトに変換"""
+        new_v = []
+        for item in v:
+            if isinstance(item, int):
+                new_v.append({"position": item, "color": "black"})
+            else:
+                new_v.append(item)
+        return new_v
 
     @field_validator('domains')
     @classmethod
@@ -383,13 +453,41 @@ class MultiGeneStructureRequest(BaseModel):
     draw_settings: DrawSettings
     gene_structures: List[GeneStructureInfo]
     show_labels: bool = True
+    show_scale: bool = False  # スケールバー表示フラグ
     gene_spacing: int = 50  # 遺伝子間の余白（ピクセル）
     label_spacing: int = 10  # ラベルと遺伝子構造の余白（ピクセル）
-    deletion_regions: List[List[int]] = []
+    deletion_regions: List[Deletion] = []
     domains: List[Dict] = []
     protein_domains: List[ProteinDomain] = []
-    snps: List[int] = []
+    snps: List[Snp] = []
     insertions: List[Insertion] = []
+    coordinate_mode: CoordinateMode = CoordinateMode.RELATIVE
+
+    @field_validator('deletion_regions', mode='before')
+    @classmethod
+    def validate_deletion_regions_before(cls, v):
+        """[start, end] のリスト形式を Deletion オブジェクトに変換"""
+        new_v = []
+        for item in v:
+            if isinstance(item, list):
+                if len(item) != 2:
+                    raise ValueError(f"Deletion region must have exactly 2 elements [start, end]")
+                new_v.append({"start": item[0], "end": item[1], "color": "black"})
+            else:
+                new_v.append(item)
+        return new_v
+
+    @field_validator('snps', mode='before')
+    @classmethod
+    def validate_snps_before(cls, v):
+        """int のリスト形式を Snp オブジェクトに変換"""
+        new_v = []
+        for item in v:
+            if isinstance(item, int):
+                new_v.append({"position": item, "color": "black"})
+            else:
+                new_v.append(item)
+        return new_v
 
     @field_validator('gene_structures')
     @classmethod
@@ -399,40 +497,6 @@ class MultiGeneStructureRequest(BaseModel):
             raise ValueError("At least one gene structure is required")
         if len(v) > 30:
             raise ValueError("Maximum 30 gene structures allowed")
-        return v
-
-    @field_validator('gene_spacing')
-    @classmethod
-    def validate_gene_spacing(cls, v):
-        """gene_spacingのバリデーション"""
-        if v < 0:
-            raise ValueError("gene_spacing must be non-negative")
-        if v > 500:
-            raise ValueError("gene_spacing must be 500 or less")
-        return v
-
-    @field_validator('label_spacing')
-    @classmethod
-    def validate_label_spacing(cls, v):
-        """label_spacingのバリデーション"""
-        if v < 0:
-            raise ValueError("label_spacing must be non-negative")
-        if v > 200:
-            raise ValueError("label_spacing must be 200 or less")
-        return v
-
-    @field_validator('deletion_regions')
-    @classmethod
-    def validate_deletion_regions(cls, v):
-        """deletion_regionsのバリデーション"""
-        for i, region in enumerate(v):
-            if len(region) != 2:
-                raise ValueError(f"Deletion region {i} must have exactly 2 elements [start, end]")
-            start, end = region
-            if start <= 0 or end <= 0:
-                raise ValueError(f"Deletion region {i}: coordinates must be positive integers (got start={start}, end={end})")
-            if start >= end:
-                raise ValueError(f"Deletion region {i}: start ({start}) must be less than end ({end})")
         return v
 
     @field_validator('domains')
