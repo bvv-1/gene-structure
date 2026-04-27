@@ -69,6 +69,38 @@ def get_insertion_base_width(length_bp: int, shrink_factor: float, scale: float)
 
     return max(min_width, min(scaled_width, max_width))
 
+def get_baseline_segments(actual_min_start: int, actual_max_end: int, deletion_regions: List[any]) -> List[tuple]:
+    """
+    全体の開始・終了座標とデリーション領域を基に、
+    デリーションを避けたベースラインのセグメントリストを返す
+    """
+    if actual_min_start >= actual_max_end:
+        return []
+    
+    segments = [(actual_min_start, actual_max_end)]
+    
+    for deletion in deletion_regions:
+        # deletionは api/models.Deletion オブジェクトか、geneSTRUCTUREのdict
+        if hasattr(deletion, 'start'):
+            del_start, del_end = deletion.start, deletion.end
+        elif isinstance(deletion, dict):
+            del_start, del_end = deletion['start'], deletion['end']
+        else:
+            del_start, del_end = deletion
+            
+        new_segments = []
+        for seg_start, seg_end in segments:
+            if seg_end < del_start or seg_start > del_end:
+                new_segments.append((seg_start, seg_end))
+            else:
+                if seg_start < del_start:
+                    new_segments.append((seg_start, del_start - 1))
+                if seg_end > del_end:
+                    new_segments.append((del_end + 1, seg_end))
+        segments = new_segments
+        
+    return [s for s in segments if s[0] < s[1]]
+
 def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float = 2.0) -> tuple:
     """
     範囲サイズと物理的なスケールに応じて、重なり合わない適切な目盛り間隔と単位を返す
@@ -207,28 +239,106 @@ def get_terminal_feature(features):
 
 
 def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0,
-                        utr_color=None, exon_color=None, line_color=None, domain_color=None):
+                        utr_color=None, exon_color=None, line_color=None, domain_color=None,
+                        coordinate_mode="relative", anchor=0, strand="+"):
     # デフォルト色を設定
     utr_color = utr_color or DEFAULT_COLORS['utr_color']
     exon_color = exon_color or DEFAULT_COLORS['exon_color']
     line_color = line_color or DEFAULT_COLORS['line_color']
     domain_color = domain_color or DEFAULT_COLORS['domain_color']
 
-    min_start = gene.to_relative()
+    gene.to_relative()
     all_features = gene.get_sorted_features()
+    
+    # Calculate true extents including SNPs and Insertions
+    actual_min_start, actual_max_end = gene.get_full_extent()
+        
     terminal_feature = get_terminal_feature(all_features)
-    max_end = max(f.end / shrink_factor for f in all_features)
+    max_end = actual_max_end / shrink_factor
 
-    shift = -min_start if min_start < 0 else 0
+    shift = -actual_min_start if actual_min_start < 0 else 0
 
     canvas_width = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale + extra_padding + 300
-    canvas_height = 300  # 凡例分のスペースを確保
+    canvas_height = 400  # 凡例と座標軸用のスペースを確保
 
     # メモリ上にSVGを作成
     dwg = svgwrite.Drawing(size=(canvas_width, canvas_height))
     y_pos = 50
     height_feature = 15
     max_x_coord = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale
+
+    # === 座標軸（スケールバー）の描画 ===
+    axis_y = y_pos + height_feature + 40
+    range_bp = actual_max_end - actual_min_start
+    if range_bp > 0:
+        x_axis_start = LEFT_MARGIN + (actual_min_start / shrink_factor + shift / shrink_factor) * scale
+        x_axis_end = LEFT_MARGIN + (actual_max_end / shrink_factor + shift / shrink_factor) * scale
+        
+        # 座標軸の線
+        dwg.add(dwg.line(
+            start=(x_axis_start, axis_y),
+            end=(x_axis_end, axis_y),
+            stroke='black',
+            stroke_width=1
+        ))
+
+        # 目盛りの計算
+        tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
+        
+        # coordinate_mode に応じて表示用の開始座標を決定
+        display_start = anchor if coordinate_mode == "absolute" else 0
+        
+        # 0 または display_start を含めるために floor を使用
+        first_tick = (actual_min_start // tick_interval) * tick_interval
+        
+        for tick_val in range(first_tick, actual_max_end + 1, tick_interval):
+            # 描画範囲外の tick は描画しない（ただし、x_axis_start 付近は許容）
+            if tick_val < actual_min_start - tick_interval / 10:
+                continue
+
+            x = LEFT_MARGIN + (tick_val / shrink_factor + shift / shrink_factor) * scale
+            
+            # 目盛り線
+            dwg.add(dwg.line(
+                start=(x, axis_y),
+                end=(x, axis_y + 5),
+                stroke='black',
+                stroke_width=1
+            ))
+
+            # ラベル
+            if coordinate_mode == "absolute" and strand == '-':
+                display_tick_val = display_start - tick_val + 1
+            else:
+                display_tick_val = display_start + tick_val - 1 if coordinate_mode == "absolute" else tick_val
+
+            if divisor == 1:
+                tick_label = f"{display_tick_val} {unit_label}"
+            else:
+                tick_label = f"{display_tick_val // divisor} {unit_label}"
+            
+            dwg.add(dwg.text(
+                tick_label,
+                insert=(x, axis_y - 5),
+                font_size='9px',
+                fill='black',
+                text_anchor='middle'
+            ))
+
+    # Draw baseline (intron style) in segments, skipping deletions
+    baseline_segments = get_baseline_segments(actual_min_start, actual_max_end, getattr(gene, 'deletion_regions', []))
+    y_line = y_pos + height_feature // 2
+    for seg_start, seg_end in baseline_segments:
+        x_base_start = LEFT_MARGIN + (seg_start / shrink_factor + shift / shrink_factor) * scale
+        x_base_end = LEFT_MARGIN + (seg_end / shrink_factor + shift / shrink_factor) * scale
+        dwg.add(
+            dwg.line(
+                start=(x_base_start, y_line),
+                end=(x_base_end, y_line),
+                stroke=line_color,
+                stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
+            )
+        )
 
     for feat in all_features:
         x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
@@ -316,9 +426,11 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
         if hasattr(ins, 'position'):
             ins_pos = ins.position
             ins_length = getattr(ins, 'length', 1)
+            ins_color = getattr(ins, 'color', 'black')
         else:
             ins_pos = ins
             ins_length = 1
+            ins_color = "black"
 
         x = LEFT_MARGIN + (ins_pos / shrink_factor + shift / shrink_factor) * scale
         base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
@@ -330,8 +442,8 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
                     (x + base_width / 2, y_triangle),
                     (x, y_triangle + triangle_height)
                 ],
-                fill="black",
-                stroke="black",
+                fill=ins_color,
+                stroke=ins_color,
                 stroke_width=1.5
             )
         )
@@ -342,13 +454,20 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     y_snp_top = y_pos - snp_extend_up
     y_snp_bottom = y_pos + height_feature + snp_extend_down
 
-    for snp_pos in getattr(gene, "snps", []):
+    for snp in getattr(gene, "snps", []):
+        if hasattr(snp, 'position'):
+            snp_pos = snp.position
+            snp_color = getattr(snp, 'color', 'black')
+        else:
+            snp_pos = snp
+            snp_color = "black"
+
         x = LEFT_MARGIN + (snp_pos / shrink_factor + shift / shrink_factor) * scale
         dwg.add(
             dwg.line(
                 start=(x, y_snp_top),
                 end=(x, y_snp_bottom),
-                stroke="black",
+                stroke=snp_color,
                 stroke_width=1.2
             )
         )
@@ -510,26 +629,28 @@ def draw_multiple_gene_structures(
     label_base_width = int(max_label_len * 6.6) + 5  # 少し余裕を持たせる
     label_width = (label_base_width + label_spacing) if show_labels else 0  # ラベル用のスペース + 余白
 
-    # 各遺伝子の最大X座標を計算
-    max_x_coords = []
+    # 各遺伝子の座標範囲を計算
     gene_data = []
 
     for gene in genes:
-        min_start = gene.to_relative()
+        gene.to_relative()
         all_features = gene.get_sorted_features()
         if not all_features:
-            max_x_coords.append(0)
-            gene_data.append((all_features, 0, 0))
+            gene_data.append((all_features, 1, 1))
             continue
 
-        max_end = max(f.end / shrink_factor for f in all_features)
-        shift = -min_start if min_start < 0 else 0
-        max_x_coord = LEFT_MARGIN + label_width + (max_end + shift / shrink_factor) * scale
-        max_x_coords.append(max_x_coord)
-        gene_data.append((all_features, shift, max_end))
+        # Calculate true extents including SNPs and Insertions
+        actual_min_start, actual_max_end = gene.get_full_extent()
+        
+        gene_data.append((all_features, actual_min_start, actual_max_end))
 
-    # Canvas幅は最大のX座標 + 凡例スペース
-    global_max_x = max(max_x_coords) if max_x_coords else LEFT_MARGIN + label_width
+    # 全体の最小・最大座標を決定して位置を揃える
+    global_min_start = min(g[1] for g in gene_data) if gene_data else 1
+    global_max_end = max(g[2] for g in gene_data) if gene_data else 1
+    global_shift = -global_min_start if global_min_start < 0 else 0
+
+    # Canvas幅を計算
+    global_max_x = LEFT_MARGIN + label_width + (global_max_end / shrink_factor + global_shift / shrink_factor) * scale
     canvas_width = global_max_x + extra_padding + 300
 
     # スケールバー（座標軸）の設定
@@ -545,16 +666,10 @@ def draw_multiple_gene_structures(
 
     # === スケールバー（座標軸）の描画 ===
     if show_scale:
-        max_gene_length_bp = 0
-        for features, shift, max_end in gene_data:
-            if features:
-                gene_length = int(max_end * shrink_factor)
-                if gene_length > max_gene_length_bp:
-                    max_gene_length_bp = gene_length
-
-        if max_gene_length_bp > 0:
+        range_bp = global_max_end - global_min_start
+        if range_bp > 0:
             axis_y = top_margin - 25
-            axis_width = (max_gene_length_bp / shrink_factor) * scale
+            axis_width = (range_bp / shrink_factor) * scale
             
             # 座標軸の線
             dwg.add(dwg.line(
@@ -565,13 +680,20 @@ def draw_multiple_gene_structures(
             ))
 
             # 目盛りの計算
-            tick_interval, unit_label, divisor = get_tick_params(max_gene_length_bp, shrink_factor, scale)
+            tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
             
             # coordinate_mode に応じて開始座標を決定
             display_start = anchor if coordinate_mode == "absolute" else 0
             
-            for offset_bp in range(0, max_gene_length_bp + 1, tick_interval):
-                x = LEFT_MARGIN + label_width + (offset_bp / shrink_factor) * scale
+            # 0 または display_start を含めるために floor を使用
+            first_tick = (global_min_start // tick_interval) * tick_interval
+            
+            for tick_val in range(first_tick, global_max_end + 1, tick_interval):
+                # 描画範囲外の tick は描画しない（ただし、グローバル開始点付近は許容）
+                if tick_val < global_min_start - tick_interval / 10:
+                    continue
+
+                x = LEFT_MARGIN + label_width + (tick_val / shrink_factor + global_shift / shrink_factor) * scale
                 
                 # 目盛り線
                 dwg.add(dwg.line(
@@ -583,14 +705,14 @@ def draw_multiple_gene_structures(
 
                 # ラベル
                 if coordinate_mode == "absolute" and strand == '-':
-                    tick_val = display_start - offset_bp
+                    display_tick_val = display_start - tick_val + 1
                 else:
-                    tick_val = display_start + offset_bp
+                    display_tick_val = display_start + tick_val - 1 if coordinate_mode == "absolute" else tick_val
 
                 if divisor == 1:
-                    tick_label = f"{tick_val} {unit_label}"
+                    tick_label = f"{display_tick_val} {unit_label}"
                 else:
-                    tick_label = f"{tick_val // divisor} {unit_label}"
+                    tick_label = f"{display_tick_val // divisor} {unit_label}"
                 
                 dwg.add(dwg.text(
                     tick_label,
@@ -602,7 +724,7 @@ def draw_multiple_gene_structures(
 
     # 各遺伝子を描画
     for idx, (gene, label) in enumerate(zip(genes, labels)):
-        all_features, shift, max_end = gene_data[idx]
+        all_features, actual_min_start, actual_max_end = gene_data[idx]
         y_pos = top_margin + idx * (gene_height + gene_spacing)
         terminal_feature = get_terminal_feature(all_features)
 
@@ -616,10 +738,25 @@ def draw_multiple_gene_structures(
                 font_family='monospace'
             ))
 
+        # Draw baseline (intron style) in segments, skipping deletions
+        baseline_segments = get_baseline_segments(global_min_start, global_max_end, getattr(gene, 'deletion_regions', []))
+        y_line = y_pos + height_feature // 2
+        for seg_start, seg_end in baseline_segments:
+            x_base_start = LEFT_MARGIN + label_width + (seg_start / shrink_factor + global_shift / shrink_factor) * scale
+            x_base_end = LEFT_MARGIN + label_width + (seg_end / shrink_factor + global_shift / shrink_factor) * scale
+            dwg.add(
+                dwg.line(
+                    start=(x_base_start, y_line),
+                    end=(x_base_end, y_line),
+                    stroke=line_color,
+                    stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
+                )
+            )
+
         # フィーチャーを描画（ドメイン以外）
         for feat in all_features:
-            x_start = LEFT_MARGIN + label_width + (feat.start / shrink_factor + shift / shrink_factor) * scale
-            x_end = LEFT_MARGIN + label_width + (feat.end / shrink_factor + shift / shrink_factor) * scale
+            x_start = LEFT_MARGIN + label_width + (feat.start / shrink_factor + global_shift / shrink_factor) * scale
+            x_end = LEFT_MARGIN + label_width + (feat.end / shrink_factor + global_shift / shrink_factor) * scale
             width = x_end - x_start
 
             if feat.feature_type == 'domain':
@@ -630,6 +767,7 @@ def draw_multiple_gene_structures(
                 y_line = y_pos + height_feature // 2
                 mid_x = x_start + (x_end - x_start) / 2
                 offset = 10
+                del_color = feat.attributes.get('color', 'black')
                 dwg.add(
                     dwg.polyline(
                         points=[
@@ -638,7 +776,7 @@ def draw_multiple_gene_structures(
                             (x_end, y_line)
                         ],
                         fill='none',
-                        stroke='black',
+                        stroke=del_color,
                         stroke_width=1,
                         stroke_dasharray="2,2"
                     )
@@ -707,7 +845,7 @@ def draw_multiple_gene_structures(
                 ins_length = 1
                 ins_color = "black"
 
-            x = LEFT_MARGIN + label_width + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+            x = LEFT_MARGIN + label_width + (ins_pos / shrink_factor + global_shift / shrink_factor) * scale
             base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
 
             dwg.add(
@@ -737,7 +875,7 @@ def draw_multiple_gene_structures(
                 snp_pos = snp
                 snp_color = "black"
 
-            x = LEFT_MARGIN + label_width + (snp_pos / shrink_factor + shift / shrink_factor) * scale
+            x = LEFT_MARGIN + label_width + (snp_pos / shrink_factor + global_shift / shrink_factor) * scale
             dwg.add(
                 dwg.line(
                     start=(x, y_snp_top),
@@ -750,8 +888,8 @@ def draw_multiple_gene_structures(
         # ドメインを描画（上層）
         for feat in all_features:
             if feat.feature_type == 'domain':
-                x_start = LEFT_MARGIN + label_width + (feat.start / shrink_factor + shift / shrink_factor) * scale
-                x_end = LEFT_MARGIN + label_width + (feat.end / shrink_factor + shift / shrink_factor) * scale
+                x_start = LEFT_MARGIN + label_width + (feat.start / shrink_factor + global_shift / shrink_factor) * scale
+                x_end = LEFT_MARGIN + label_width + (feat.end / shrink_factor + global_shift / shrink_factor) * scale
                 width = x_end - x_start
 
                 # ドメイン色はattributesから取得
@@ -912,13 +1050,9 @@ def draw_region_gene_structures(
     # 各遺伝子の座標範囲を計算
     gene_ranges = []
     for idx, gene in enumerate(genes):
-        features = gene.get_sorted_features()
-        if features:
-            gene_start = min(f.start for f in features)
-            gene_end = max(f.end for f in features)
-        else:
-            gene_start = 0
-            gene_end = 0
+        # Calculate true extents including SNPs and Insertions
+        gene_start, gene_end = gene.get_full_extent()
+            
         gene_ranges.append({
             'idx': idx,
             'gene': gene,
@@ -958,8 +1092,8 @@ def draw_region_gene_structures(
     num_tracks = len(tracks)
 
     # 全遺伝子の座標範囲を計算（はみ出しを含む）
-    all_starts = [g['start'] for g in gene_ranges if g['start'] > 0]
-    all_ends = [g['end'] for g in gene_ranges if g['end'] > 0]
+    all_starts = [g['start'] for g in gene_ranges]
+    all_ends = [g['end'] for g in gene_ranges]
 
     # 描画範囲を決定（領域指定とはみ出しを考慮）
     if all_starts and all_ends:
@@ -996,9 +1130,13 @@ def draw_region_gene_structures(
 
     # 目盛りを描画
     tick_interval, unit_label, divisor = get_tick_params(draw_end - draw_start, shrink_factor, scale)
-    first_tick = ((draw_start // tick_interval) + 1) * tick_interval
+    first_tick = (draw_start // tick_interval) * tick_interval
 
     for tick_pos in range(first_tick, draw_end + 1, tick_interval):
+        # 描画範囲外の tick は描画しない（ただし、draw_start 付近は許容）
+        if tick_pos < draw_start - tick_interval / 10:
+            continue
+
         x = LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
 
         # 目盛り線
@@ -1026,16 +1164,31 @@ def draw_region_gene_structures(
     for gene_info, track_idx in gene_track_assignments:
         gene = gene_info['gene']
         label = gene_info['label']
+        actual_min_start = gene_info['start']
+        actual_max_end = gene_info['end']
         all_features = gene.get_sorted_features()
         y_pos = top_margin + track_idx * (track_height + gene_spacing)
         terminal_feature = get_terminal_feature(all_features)
 
+        # Draw baseline (intron style) in segments, skipping deletions
+        baseline_segments = get_baseline_segments(draw_start, draw_end, getattr(gene, 'deletion_regions', []))
+        y_line = y_pos + height_feature // 2
+        for seg_start, seg_end in baseline_segments:
+            x_base_start = LEFT_MARGIN + (seg_start - draw_start) / shrink_factor * scale
+            x_base_end = LEFT_MARGIN + (seg_end - draw_start) / shrink_factor * scale
+            dwg.add(
+                dwg.line(
+                    start=(x_base_start, y_line),
+                    end=(x_base_end, y_line),
+                    stroke=line_color,
+                    stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
+                )
+            )
+
         # 遺伝子の中心X座標を計算（ラベル配置用）
         gene_center_x = None
-        if all_features:
-            gene_start = min(f.start for f in all_features)
-            gene_end = max(f.end for f in all_features)
-            gene_center_x = LEFT_MARGIN + ((gene_start + gene_end) / 2 - draw_start) / shrink_factor * scale
+        if actual_min_start < actual_max_end:
+            gene_center_x = LEFT_MARGIN + ((actual_min_start + actual_max_end) / 2 - draw_start) / shrink_factor * scale
 
         # フィーチャーを描画（ドメイン以外）
         for feat in all_features:
@@ -1052,6 +1205,7 @@ def draw_region_gene_structures(
                 y_line = y_pos + height_feature // 2
                 mid_x = x_start + (x_end - x_start) / 2
                 offset = 10
+                del_color = feat.attributes.get('color', 'black')
                 dwg.add(
                     dwg.polyline(
                         points=[
@@ -1060,7 +1214,7 @@ def draw_region_gene_structures(
                             (x_end, y_line)
                         ],
                         fill='none',
-                        stroke='black',
+                        stroke=del_color,
                         stroke_width=1,
                         stroke_dasharray="2,2"
                     )
@@ -1123,9 +1277,11 @@ def draw_region_gene_structures(
             if hasattr(ins, 'position'):
                 ins_pos = ins.position
                 ins_length = getattr(ins, 'length', 1)
+                ins_color = getattr(ins, 'color', 'black')
             else:
                 ins_pos = ins
                 ins_length = 1
+                ins_color = "black"
 
             x = LEFT_MARGIN + (ins_pos - draw_start) / shrink_factor * scale
             base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
@@ -1137,8 +1293,8 @@ def draw_region_gene_structures(
                         (x + base_width / 2, y_triangle),
                         (x, y_triangle + triangle_height)
                     ],
-                    fill="black",
-                    stroke="black",
+                    fill=ins_color,
+                    stroke=ins_color,
                     stroke_width=1.5
                 )
             )
@@ -1149,13 +1305,20 @@ def draw_region_gene_structures(
         y_snp_top = y_pos - snp_extend_up
         y_snp_bottom = y_pos + height_feature + snp_extend_down
 
-        for snp_pos in getattr(gene, "snps", []):
+        for snp in getattr(gene, "snps", []):
+            if hasattr(snp, "position"):
+                snp_pos = snp.position
+                snp_color = getattr(snp, "color", "black")
+            else:
+                snp_pos = snp
+                snp_color = "black"
+
             x = LEFT_MARGIN + (snp_pos - draw_start) / shrink_factor * scale
             dwg.add(
                 dwg.line(
                     start=(x, y_snp_top),
                     end=(x, y_snp_bottom),
-                    stroke="black",
+                    stroke=snp_color,
                     stroke_width=1.2
                 )
             )

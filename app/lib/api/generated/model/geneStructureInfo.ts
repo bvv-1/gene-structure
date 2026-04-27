@@ -4,8 +4,13 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
+import type { Deletion } from './deletion';
 import type { GeneStructureInfoAttributes } from './geneStructureInfoAttributes';
+import type { GeneStructureInfoDomainsItem } from './geneStructureInfoDomainsItem';
+import type { Insertion } from './insertion';
 import type { Position } from './position';
+import type { ProteinDomain } from './proteinDomain';
+import type { Snp } from './snp';
 
 export interface GeneStructureInfo {
   seq_id?: string | null;
@@ -18,6 +23,11 @@ export interface GeneStructureInfo {
   phase?: string | null;
   attributes?: GeneStructureInfoAttributes;
   transcript_id: string;
+  snps?: Snp[];
+  insertions?: Insertion[];
+  deletion_regions?: Deletion[];
+  domains?: GeneStructureInfoDomainsItem[];
+  protein_domains?: ProteinDomain[];
   total_length: number;
   exons: Position[];
   cds: Position[];

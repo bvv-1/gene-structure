@@ -31,6 +31,7 @@ class GeneStructure:
         self.features = []
         self.insertions: List[Insertion] = []
         self.snps: List[Snp] = []
+        self.deletion_regions: List[Deletion] = []
         self.domain_color_map = {}
 
     def add_insertions(self, insertions: List[Insertion]):
@@ -136,22 +137,63 @@ class GeneStructure:
             )
             self.features.append(domain_feature)
 
-    def update_features_with_deletions(self, deletion_regions: List[Deletion]):
-        new_features = []
+    def get_sorted_features(self):
+        return sorted(self.features, key=lambda f: f.start)
 
-        for i, feature in enumerate(self.features):
+    def get_full_extent(self):
+        """SNPや挿入を含めた、遺伝子構造の真の開始・終了座標を返す"""
+        starts = [f.start for f in self.features]
+        ends = [f.end for f in self.features]
+
+        for snp in self.snps:
+            pos = getattr(snp, 'position', snp)
+            starts.append(pos)
+            ends.append(pos)
+
+        for ins in self.insertions:
+            pos = getattr(ins, 'position', ins)
+            length = getattr(ins, 'length', 1)
+            starts.append(pos)
+            ends.append(pos + length - 1)
+
+        if not starts:
+            return 1, 1
+        return min(starts), max(ends)
+
+    def update_features_with_deletions(self, deletion_regions: List[Deletion]):
+        self.deletion_regions = deletion_regions
+        new_features = []
+        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
+
+        # まずデリーション自体をフィーチャーとして追加
+        for deletion in deletion_regions:
+            new_features.append(GeneFeature(
+                self.seqid, deletion.start, deletion.end,
+                'deletion', self.strand, {'color': deletion.color}
+            ))
+
+        for feature in self.features:
+            # すでに存在するデリーションは重複を避けるためにスキップ（通常はないはずだが）
+            if feature.feature_type == 'deletion':
+                continue
+
+            # 非構造的要素（ドメイン等）の場合、デリーションと重なれば削除する
+            if feature.feature_type not in structural_types:
+                overlaps = False
+                for deletion in deletion_regions:
+                    if not (feature.end < deletion.start or feature.start > deletion.end):
+                        overlaps = True
+                        break
+                if overlaps:
+                    continue
+
+            # 構造的要素（または重なっていない非構造要素）の処理
             f_start, f_end = feature.start, feature.end
             segments = [(f_start, f_end)]  # featureの元の範囲
 
             for deletion in deletion_regions:
                 del_start, del_end = deletion.start, deletion.end
                 updated_segments = []
-
-                if i == 0:
-                    new_features.append(GeneFeature(
-                        self.seqid, del_start, del_end,
-                        'deletion', self.strand, {'color': deletion.color}
-                    ))
 
                 for seg_start, seg_end in segments:
                     # 削除領域と重なっていなければそのまま残す
@@ -166,7 +208,7 @@ class GeneStructure:
                             updated_segments.append((del_end + 1, seg_end))
                 segments = updated_segments
 
-            # 分割後の有効セグメントが残っていれば追加（完全削除されたらスキップ）
+            # 分割後の有効セグメントが残っていれば追加
             for start, end in segments:
                 if start <= end:
                     new_features.append(GeneFeature(
@@ -180,6 +222,17 @@ class GeneStructure:
 
         # 結果を更新
         self.features = new_features
+
+        # SNPと挿入のフィルタリング
+        if deletion_regions:
+            self.snps = [
+                s for s in self.snps 
+                if not any(d.start <= s.position <= d.end for d in deletion_regions)
+            ]
+            self.insertions = [
+                i for i in self.insertions 
+                if not any(d.start <= i.position <= d.end for d in deletion_regions)
+            ]
 
     def to_relative(self):
         # exon-like features including UTRs to find the real start
@@ -210,6 +263,18 @@ class GeneStructure:
                     ins.position = ins.position - anchor + 1
                 else:
                     self.insertions[i] = ins - anchor + 1
+
+        # デリーション領域も相対座標に変換
+        if hasattr(self, 'deletion_regions') and self.deletion_regions:
+            for i in range(len(self.deletion_regions)):
+                d = self.deletion_regions[i]
+                if hasattr(d, 'start'):
+                    d.start = d.start - anchor + 1
+                    d.end = d.end - anchor + 1
+                else:
+                    # dict形式の場合（geneSTRUCTUREとの互換性用）
+                    self.deletion_regions[i]['start'] = d['start'] - anchor + 1
+                    self.deletion_regions[i]['end'] = d['end'] - anchor + 1
 
         return 1
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
@@ -284,8 +349,6 @@ class Insertion(BaseModel):
 
     @model_validator(mode='after')
     def validate_insertion(self):
-        if self.position <= 0:
-            raise ValueError(f"position must be a positive integer (got {self.position})")
         if self.length <= 0:
             raise ValueError(f"length must be a positive integer (got {self.length})")
         return self
@@ -298,8 +361,6 @@ class Snp(BaseModel):
 
     @model_validator(mode='after')
     def validate_snp(self):
-        if self.position <= 0:
-            raise ValueError(f"position must be a positive integer (got {self.position})")
         return self
 
 
@@ -311,8 +372,6 @@ class Deletion(BaseModel):
 
     @model_validator(mode='after')
     def validate_deletion(self):
-        if self.start <= 0 or self.end <= 0:
-            raise ValueError(f"coordinates must be positive integers (got start={self.start}, end={self.end})")
         if self.start >= self.end:
             raise ValueError(f"start ({self.start}) must be less than end ({self.end})")
         return self
@@ -372,6 +431,12 @@ class GeneStructureInfo(BaseModel):
     phase: Optional[str] = None
     attributes: Optional[Dict[str, Any]] = None
     transcript_id: str
+    # オプション: 個別のバリアント情報
+    snps: List[Snp] = []
+    insertions: List[Insertion] = []
+    deletion_regions: List[Deletion] = []
+    domains: List[Dict] = []
+    protein_domains: List[ProteinDomain] = []
     total_length: int
     exons: List[Position]
     cds: List[Position]
@@ -448,20 +513,15 @@ class GeneStructureRequest(BaseModel):
         return v
 
 
-class MultiGeneStructureRequest(BaseModel):
-    """複数遺伝子のSVG生成リクエスト"""
-    draw_settings: DrawSettings
-    gene_structures: List[GeneStructureInfo]
-    show_labels: bool = True
-    show_scale: bool = False  # スケールバー表示フラグ
-    gene_spacing: int = 50  # 遺伝子間の余白（ピクセル）
-    label_spacing: int = 10  # ラベルと遺伝子構造の余白（ピクセル）
+class MultiGeneItem(BaseModel):
+    """各トランスクリプトの構造とバリアント定義"""
+    gene_structure: GeneStructureInfo
+    label: Optional[str] = None
+    snps: List[Snp] = []
+    insertions: List[Insertion] = []
     deletion_regions: List[Deletion] = []
     domains: List[Dict] = []
     protein_domains: List[ProteinDomain] = []
-    snps: List[Snp] = []
-    insertions: List[Insertion] = []
-    coordinate_mode: CoordinateMode = CoordinateMode.RELATIVE
 
     @field_validator('deletion_regions', mode='before')
     @classmethod
@@ -489,46 +549,50 @@ class MultiGeneStructureRequest(BaseModel):
                 new_v.append(item)
         return new_v
 
-    @field_validator('gene_structures')
-    @classmethod
-    def validate_gene_structures(cls, v):
-        """gene_structuresのバリデーション"""
-        if len(v) == 0:
-            raise ValueError("At least one gene structure is required")
-        if len(v) > 30:
-            raise ValueError("Maximum 30 gene structures allowed")
-        return v
-
     @field_validator('domains')
     @classmethod
     def validate_domains(cls, v):
         """domainsのバリデーション"""
         for i, domain in enumerate(v):
-            # 必須フィールドのチェック
             if 'start' not in domain:
                 raise ValueError(f"Domain {i}: 'start' field is required")
             if 'end' not in domain:
                 raise ValueError(f"Domain {i}: 'end' field is required")
             if 'name' not in domain:
                 raise ValueError(f"Domain {i}: 'name' field is required")
-
             start = domain['start']
             end = domain['end']
             name = domain['name']
-
-            # 型チェック
             if not isinstance(start, int):
                 raise ValueError(f"Domain {i}: 'start' must be an integer (got {type(start).__name__})")
             if not isinstance(end, int):
                 raise ValueError(f"Domain {i}: 'end' must be an integer (got {type(end).__name__})")
             if not isinstance(name, str):
                 raise ValueError(f"Domain {i}: 'name' must be a string (got {type(name).__name__})")
-
-            # 範囲チェック
             if start <= 0 or end <= 0:
                 raise ValueError(f"Domain {i}: coordinates must be positive integers (got start={start}, end={end})")
             if start >= end:
                 raise ValueError(f"Domain {i}: start ({start}) must be less than end ({end})")
+        return v
+
+class MultiGeneStructureRequest(BaseModel):
+    """複数遺伝子のSVG生成リクエスト"""
+    draw_settings: DrawSettings
+    items: List[MultiGeneItem]
+    show_labels: bool = True
+    show_scale: bool = False  # スケールバー表示フラグ
+    gene_spacing: int = 50  # 遺伝子間の余白（ピクセル）
+    label_spacing: int = 10  # ラベルと遺伝子構造の余白（ピクセル）
+    coordinate_mode: CoordinateMode = CoordinateMode.RELATIVE
+
+    @field_validator('items')
+    @classmethod
+    def validate_items(cls, v):
+        """itemsのバリデーション"""
+        if len(v) == 0:
+            raise ValueError("At least one item is required")
+        if len(v) > 30:
+            raise ValueError("Maximum 30 items allowed")
         return v
 
 

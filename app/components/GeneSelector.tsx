@@ -20,7 +20,6 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   Alert,
   Autocomplete,
-  Badge,
   Box,
   Button,
   Group,
@@ -35,23 +34,24 @@ import {
 } from "@tabler/icons-react";
 import Fuse from "fuse.js";
 import { useMemo, useState } from "react";
+import type { SelectedTranscriptItem } from "../types/variant";
 import type { GeneStructureInfo } from "../utils/gff";
 
 interface GeneSelectorProps {
   geneStructures: GeneStructureInfo[];
-  selectedTranscripts: string[];
-  onSelectionChange: (transcripts: string[]) => void;
+  selectedItems: SelectedTranscriptItem[];
+  onSelectionChange: (items: SelectedTranscriptItem[]) => void;
   maxSelection?: number;
   disabled?: boolean;
 }
 
 interface SortableItemProps {
-  id: string;
-  onRemove: (id: string) => void;
+  item: SelectedTranscriptItem;
+  onRemove: (uid: string) => void;
   disabled?: boolean;
 }
 
-function SortableItem({ id, onRemove, disabled }: SortableItemProps) {
+function SortableItem({ item, onRemove, disabled }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -59,7 +59,7 @@ function SortableItem({ id, onRemove, disabled }: SortableItemProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id, disabled });
+  } = useSortable({ id: item.uid, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -91,15 +91,17 @@ function SortableItem({ id, onRemove, disabled }: SortableItemProps) {
           >
             <IconGripVertical size={16} color="gray" />
           </Box>
-          <Text size="sm" style={{ fontFamily: "monospace" }}>
-            {id}
-          </Text>
+          <Stack gap={0}>
+            <Text size="sm" style={{ fontFamily: "monospace" }} fw={500}>
+              {item.transcript_id}
+            </Text>
+          </Stack>
         </Group>
         <Button
           size="compact-xs"
           variant="subtle"
           color="red"
-          onClick={() => onRemove(id)}
+          onClick={() => onRemove(item.uid)}
           disabled={disabled}
         >
           <IconX size={14} />
@@ -111,7 +113,7 @@ function SortableItem({ id, onRemove, disabled }: SortableItemProps) {
 
 export function GeneSelector({
   geneStructures,
-  selectedTranscripts,
+  selectedItems,
   onSelectionChange,
   maxSelection = 30,
   disabled = false,
@@ -134,51 +136,47 @@ export function GeneSelector({
 
   const autocompleteOptions = useMemo(() => {
     if (!input) {
-      return geneStructures
-        .filter((gs) => !selectedTranscripts.includes(gs.transcript_id))
-        .slice(0, 50)
-        .map((gs) => gs.transcript_id);
+      return geneStructures.slice(0, 50).map((gs) => gs.transcript_id);
     }
 
     const results = fuseInstance.search(input);
-    return results
-      .filter((r) => !selectedTranscripts.includes(r.item.transcript_id))
-      .slice(0, 50)
-      .map((r) => r.item.transcript_id);
-  }, [geneStructures, fuseInstance, input, selectedTranscripts]);
+    return results.slice(0, 50).map((r) => r.item.transcript_id);
+  }, [geneStructures, fuseInstance, input]);
 
   const handleSelect = (value: string) => {
-    if (
-      value &&
-      !selectedTranscripts.includes(value) &&
-      selectedTranscripts.length < maxSelection
-    ) {
-      onSelectionChange([...selectedTranscripts, value]);
+    if (value && selectedItems.length < maxSelection) {
+      const newItem: SelectedTranscriptItem = {
+        uid: `${value}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        transcript_id: value,
+        snps: [],
+        insertions: [],
+        deletion_regions: [],
+        protein_domains: [],
+      };
+      onSelectionChange([...selectedItems, newItem]);
     }
     // MantineのAutocompleteは選択後に内部で値を設定するため、
     // setTimeoutで処理完了後にクリアする
     setTimeout(() => setInput(""), 0);
   };
 
-  const handleRemove = (transcriptId: string) => {
-    onSelectionChange(selectedTranscripts.filter((id) => id !== transcriptId));
-  };
-
-  const handleClearAll = () => {
-    onSelectionChange([]);
+  const handleRemove = (uid: string) => {
+    onSelectionChange(selectedItems.filter((item) => item.uid !== uid));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = selectedTranscripts.indexOf(active.id as string);
-      const newIndex = selectedTranscripts.indexOf(over.id as string);
-      onSelectionChange(arrayMove(selectedTranscripts, oldIndex, newIndex));
+      const oldIndex = selectedItems.findIndex(
+        (item) => item.uid === active.id,
+      );
+      const newIndex = selectedItems.findIndex((item) => item.uid === over.id);
+      onSelectionChange(arrayMove(selectedItems, oldIndex, newIndex));
     }
   };
 
-  const isAtLimit = selectedTranscripts.length >= maxSelection;
+  const isAtLimit = selectedItems.length >= maxSelection;
 
   return (
     <Stack gap="sm">
@@ -207,18 +205,18 @@ export function GeneSelector({
         </Alert>
       )}
 
-      {selectedTranscripts.length > 0 && (
+      {selectedItems.length > 0 && (
         <>
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              Selected: {selectedTranscripts.length} / {maxSelection}
+              Selected: {selectedItems.length} / {maxSelection}
             </Text>
             <Button
               size="compact-xs"
               variant="subtle"
               color="red"
               leftSection={<IconTrash size={14} />}
-              onClick={handleClearAll}
+              onClick={() => onSelectionChange([])}
               disabled={disabled}
             >
               Clear All
@@ -235,7 +233,7 @@ export function GeneSelector({
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={selectedTranscripts}
+              items={selectedItems.map((item) => item.uid)}
               strategy={verticalListSortingStrategy}
             >
               <Box
@@ -245,10 +243,10 @@ export function GeneSelector({
                   padding: "4px",
                 }}
               >
-                {selectedTranscripts.map((id) => (
+                {selectedItems.map((item) => (
                   <SortableItem
-                    key={id}
-                    id={id}
+                    key={item.uid}
+                    item={item}
                     onRemove={handleRemove}
                     disabled={disabled}
                   />
