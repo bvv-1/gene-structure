@@ -346,6 +346,46 @@
             "type": "string",
             "title": "Transcript Id"
           },
+          "snps": {
+            "items": {
+              "$ref": "#/components/schemas/Snp"
+            },
+            "type": "array",
+            "title": "Snps",
+            "default": []
+          },
+          "insertions": {
+            "items": {
+              "$ref": "#/components/schemas/Insertion"
+            },
+            "type": "array",
+            "title": "Insertions",
+            "default": []
+          },
+          "deletion_regions": {
+            "items": {
+              "$ref": "#/components/schemas/Deletion"
+            },
+            "type": "array",
+            "title": "Deletion Regions",
+            "default": []
+          },
+          "domains": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Domains",
+            "default": []
+          },
+          "protein_domains": {
+            "items": {
+              "$ref": "#/components/schemas/ProteinDomain"
+            },
+            "type": "array",
+            "title": "Protein Domains",
+            "default": []
+          },
           "total_length": {
             "type": "integer",
             "title": "Total Length"
@@ -498,37 +538,37 @@
         "title": "Insertion",
         "description": "\u633f\u5165\u4f4d\u7f6e\u3068\u9577\u3055\u3092\u6307\u5b9a\u3059\u308b\u30e2\u30c7\u30eb"
       },
-      "MultiGeneStructureRequest": {
+      "MultiGeneItem": {
         "properties": {
-          "draw_settings": {
-            "$ref": "#/components/schemas/DrawSettings"
+          "gene_structure": {
+            "$ref": "#/components/schemas/GeneStructureInfo"
           },
-          "gene_structures": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "snps": {
             "items": {
-              "$ref": "#/components/schemas/GeneStructureInfo"
+              "$ref": "#/components/schemas/Snp"
             },
             "type": "array",
-            "title": "Gene Structures"
+            "title": "Snps",
+            "default": []
           },
-          "show_labels": {
-            "type": "boolean",
-            "title": "Show Labels",
-            "default": true
-          },
-          "show_scale": {
-            "type": "boolean",
-            "title": "Show Scale",
-            "default": false
-          },
-          "gene_spacing": {
-            "type": "integer",
-            "title": "Gene Spacing",
-            "default": 50
-          },
-          "label_spacing": {
-            "type": "integer",
-            "title": "Label Spacing",
-            "default": 10
+          "insertions": {
+            "items": {
+              "$ref": "#/components/schemas/Insertion"
+            },
+            "type": "array",
+            "title": "Insertions",
+            "default": []
           },
           "deletion_regions": {
             "items": {
@@ -553,22 +593,46 @@
             "type": "array",
             "title": "Protein Domains",
             "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "gene_structure"
+        ],
+        "title": "MultiGeneItem",
+        "description": "\u5404\u30c8\u30e9\u30f3\u30b9\u30af\u30ea\u30d7\u30c8\u306e\u69cb\u9020\u3068\u30d0\u30ea\u30a2\u30f3\u30c8\u5b9a\u7fa9"
+      },
+      "MultiGeneStructureRequest": {
+        "properties": {
+          "draw_settings": {
+            "$ref": "#/components/schemas/DrawSettings"
           },
-          "snps": {
+          "items": {
             "items": {
-              "$ref": "#/components/schemas/Snp"
+              "$ref": "#/components/schemas/MultiGeneItem"
             },
             "type": "array",
-            "title": "Snps",
-            "default": []
+            "title": "Items"
           },
-          "insertions": {
-            "items": {
-              "$ref": "#/components/schemas/Insertion"
-            },
-            "type": "array",
-            "title": "Insertions",
-            "default": []
+          "show_labels": {
+            "type": "boolean",
+            "title": "Show Labels",
+            "default": true
+          },
+          "show_scale": {
+            "type": "boolean",
+            "title": "Show Scale",
+            "default": false
+          },
+          "gene_spacing": {
+            "type": "integer",
+            "title": "Gene Spacing",
+            "default": 50
+          },
+          "label_spacing": {
+            "type": "integer",
+            "title": "Label Spacing",
+            "default": 10
           },
           "coordinate_mode": {
             "allOf": [
@@ -582,7 +646,7 @@
         "type": "object",
         "required": [
           "draw_settings",
-          "gene_structures"
+          "items"
         ],
         "title": "MultiGeneStructureRequest",
         "description": "\u8907\u6570\u907a\u4f1d\u5b50\u306eSVG\u751f\u6210\u30ea\u30af\u30a8\u30b9\u30c8"

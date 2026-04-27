@@ -5,28 +5,18 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CoordinateMode } from './coordinateMode';
-import type { Deletion } from './deletion';
 import type { DrawSettings } from './drawSettings';
-import type { GeneStructureInfo } from './geneStructureInfo';
-import type { Insertion } from './insertion';
-import type { MultiGeneStructureRequestDomainsItem } from './multiGeneStructureRequestDomainsItem';
-import type { ProteinDomain } from './proteinDomain';
-import type { Snp } from './snp';
+import type { MultiGeneItem } from './multiGeneItem';
 
 /**
  * 複数遺伝子のSVG生成リクエスト
  */
 export interface MultiGeneStructureRequest {
   draw_settings: DrawSettings;
-  gene_structures: GeneStructureInfo[];
+  items: MultiGeneItem[];
   show_labels?: boolean;
   show_scale?: boolean;
   gene_spacing?: number;
   label_spacing?: number;
-  deletion_regions?: Deletion[];
-  domains?: MultiGeneStructureRequestDomainsItem[];
-  protein_domains?: ProteinDomain[];
-  snps?: Snp[];
-  insertions?: Insertion[];
   coordinate_mode?: CoordinateMode;
 }

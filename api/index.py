@@ -150,9 +150,9 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
             print("Added domains:", request.domains)
 
         # 座標モードに応じた変換処理
-        deletion_regions = request.deletion_regions
-        snps = request.snps
-        insertions = request.insertions
+        deletion_regions = (request.deletion_regions or []) + (gene_info.deletion_regions or [])
+        snps = (request.snps or []) + (gene_info.snps or [])
+        insertions = (request.insertions or []) + (gene_info.insertions or [])
 
         if request.coordinate_mode == CoordinateMode.ABSOLUTE:
             # 絶対座標を相対座標に変換
@@ -181,12 +181,18 @@ async def generate_gene_structure_svg(request: GeneStructureRequest):
 
         # SVGを生成（DrawSettingsから色を取得）
         draw_settings = request.draw_settings
+        anchor = get_anchor_from_gene_info(gene_info) if request.coordinate_mode == CoordinateMode.ABSOLUTE else 0
+        strand = gene_info.strand or "+"
+
         svg_content = draw_gene_structure(
             gene,
             utr_color=draw_settings.utr_color,
             exon_color=draw_settings.exon_color,
             line_color=draw_settings.line_color,
-            domain_color=DEFAULT_COLORS['domain_color']
+            domain_color=DEFAULT_COLORS['domain_color'],
+            coordinate_mode=request.coordinate_mode.value,
+            anchor=anchor,
+            strand=strand
         )
 
         return Response(content=svg_content, media_type="image/svg+xml")
@@ -204,40 +210,35 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
         genes = []
         labels = []
 
-        # 座標モードがABSOLUTEの場合、最初のトランスクリプトのanchorを使用
-        anchor = None
-        first_strand = "+"
-        if request.coordinate_mode == CoordinateMode.ABSOLUTE and request.gene_structures:
-            first_gene_info = request.gene_structures[0]
-            anchor = get_anchor_from_gene_info(first_gene_info)
-            first_strand = first_gene_info.strand or "+"
-
-        for gene_info in request.gene_structures:
+        for item in request.items:
+            gene_info = item.gene_structure
             # 共通関数でGeneStructureを構築
             gene = build_gene_structure(gene_info)
 
-            # プロテインドメインを追加
-            for pd in request.protein_domains:
-                gene.add_domain_from_protein_coords(pd.start, pd.end, pd.name)
-
-            # ドメインを追加
-            if request.domains:
-                gene.add_domains(request.domains)
-
             # 座標モードに応じた変換処理
-            deletion_regions = request.deletion_regions
-            snps = request.snps
-            insertions = request.insertions
+            snps = (item.snps or []) + (gene_info.snps or [])
+            insertions = (item.insertions or []) + (gene_info.insertions or [])
+            deletion_regions = (item.deletion_regions or []) + (gene_info.deletion_regions or [])
 
-            if request.coordinate_mode == CoordinateMode.ABSOLUTE and anchor is not None:
-                # 絶対座標を相対座標に変換（最初のトランスクリプトのanchorを使用）
+            if request.coordinate_mode == CoordinateMode.ABSOLUTE:
+                # 絶対座標を相対座標に変換
+                anchor = get_anchor_from_gene_info(gene_info)
+                strand = gene_info.strand or "+"
                 deletion_regions, snps, insertions = convert_coordinates_to_relative(
                     deletion_regions,
                     snps,
                     insertions,
                     anchor,
-                    first_strand
+                    strand
                 )
+
+            # プロテインドメインを追加
+            for pd in item.protein_domains:
+                gene.add_domain_from_protein_coords(pd.start, pd.end, pd.name)
+
+            # ドメインを追加
+            if item.domains:
+                gene.add_domains(item.domains)
 
             # SNPsを追加
             if snps:
@@ -252,10 +253,17 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
                 gene.update_features_with_deletions(deletion_regions)
 
             genes.append(gene)
+            # ラベル
             labels.append(gene_info.transcript_id)
 
         # SVGを生成
         draw_settings = request.draw_settings
+        
+        # 最初のアイテムのアンカーとストランドを軸に使用する
+        first_gene_info = request.items[0].gene_structure
+        axis_anchor = get_anchor_from_gene_info(first_gene_info) if request.coordinate_mode == CoordinateMode.ABSOLUTE else 0
+        axis_strand = first_gene_info.strand or "+"
+
         svg_content = draw_multiple_gene_structures(
             genes=genes,
             labels=labels,
@@ -267,9 +275,9 @@ async def generate_multi_gene_structure_svg(request: MultiGeneStructureRequest):
             exon_color=draw_settings.exon_color,
             line_color=draw_settings.line_color,
             domain_color=DEFAULT_COLORS['domain_color'],
-            coordinate_mode=request.coordinate_mode.value if hasattr(request.coordinate_mode, 'value') else request.coordinate_mode,
-            anchor=anchor if anchor is not None else 0,
-            strand=first_strand
+            coordinate_mode=request.coordinate_mode.value,
+            anchor=axis_anchor,
+            strand=axis_strand
         )
 
         return Response(content=svg_content, media_type="image/svg+xml")
@@ -290,6 +298,20 @@ async def generate_region_gene_structure_svg(request: RegionGeneStructureRequest
         for gene_info in request.gene_structures:
             # to_relative()を呼ばないバージョンでGeneStructureを構築
             gene = build_gene_structure_no_relative(gene_info)
+            
+            # バリアントを適用
+            if gene_info.protein_domains:
+                for pd in gene_info.protein_domains:
+                    gene.add_domain_from_protein_coords(pd.start, pd.end, pd.name)
+            if gene_info.domains:
+                gene.add_domains(gene_info.domains)
+            if gene_info.snps:
+                gene.add_snps(gene_info.snps)
+            if gene_info.insertions:
+                gene.add_insertions(gene_info.insertions)
+            if gene_info.deletion_regions:
+                gene.update_features_with_deletions(gene_info.deletion_regions)
+
             genes.append(gene)
             labels.append(gene_info.transcript_id)
 
