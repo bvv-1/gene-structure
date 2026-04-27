@@ -106,28 +106,34 @@ def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float =
     範囲サイズと物理的なスケールに応じて、重なり合わない適切な目盛り間隔と単位を返す
     """
     # 目標とする最小ピクセル間隔（ラベルが重ならないように）
-    min_pixel_step = 80 
+    min_pixel_step = 50 
     # 最小ピクセル間隔を bp に換算
     min_bp_step = min_pixel_step * shrink_factor / scale
     
-    # range_size に基づいて、最大でも 2〜3 個の目盛りが出るように調整
-    # （range_size が min_bp_step より小さい場合への対応）
-    adjusted_min_bp_step = min(min_bp_step, range_size / 2) if range_size > 0 else min_bp_step
-    if adjusted_min_bp_step <= 0:
-        adjusted_min_bp_step = 1
+    # 小さな範囲でも最低限の目盛りが出るように調整
+    if range_size <= 0:
+        return 1, "bp", 1
 
-    # 1, 2, 5 の倍数の中から、adjusted_min_bp_step 以上の最小の値を探す
-    exponent = math.floor(math.log10(adjusted_min_bp_step))
+    # 1, 2, 5 の倍数の中から、min_bp_step に近い適切な値を探す
+    exponent = math.floor(math.log10(min_bp_step))
     magnitude = 10 ** exponent
     
     candidates = [1 * magnitude, 2 * magnitude, 5 * magnitude, 10 * magnitude]
     step = 10 * magnitude
     for c in candidates:
-        if c >= adjusted_min_bp_step:
+        if c >= min_bp_step:
             step = c
             break
+    
+    # 範囲に対して目盛りが少なすぎる（3個未満）場合は、一段階細かいステップを検討
+    # ただし、物理的な重なりを避けるため min_bp_step/2 までは許容する
+    if range_size / step < 2.5 and step / 2 >= min_bp_step / 2:
+        if step == 10 * magnitude: step = 5 * magnitude
+        elif step == 5 * magnitude: step = 2 * magnitude
+        elif step == 2 * magnitude: step = 1 * magnitude
+        else: step = magnitude / 2
             
-    step = int(step)
+    step = int(step) if step >= 1 else 1
     
     # 単位の決定
     if step >= 1_000_000:
@@ -256,7 +262,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     terminal_feature = get_terminal_feature(all_features)
     max_end = actual_max_end / shrink_factor
 
-    shift = -actual_min_start if actual_min_start < 0 else 0
+    shift = -actual_min_start
 
     canvas_width = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale + extra_padding + 300
     canvas_height = 400  # 凡例と座標軸用のスペースを確保
@@ -288,12 +294,25 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
         # coordinate_mode に応じて表示用の開始座標を決定
         display_start = anchor if coordinate_mode == "absolute" else 0
         
-        # 0 または display_start を含めるために floor を使用
-        first_tick = (actual_min_start // tick_interval) * tick_interval
+        # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
+        if coordinate_mode == "absolute" and strand == '-':
+            # マイナスストランドの場合、tick_val が増えると display_tick_val は減る
+            max_display_val = display_start - actual_min_start + 1
+            first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
+            first_tick = display_start - first_tick_label + 1
+            tick_step = -tick_interval
+        else:
+            min_display_val = display_start + actual_min_start - 1
+            first_tick_label = math.floor(min_display_val / tick_interval) * tick_interval
+            first_tick = first_tick_label - display_start + 1
+            tick_step = tick_interval
         
-        for tick_val in range(first_tick, actual_max_end + 1, tick_interval):
-            # 描画範囲外の tick は描画しない（ただし、x_axis_start 付近は許容）
-            if tick_val < actual_min_start - tick_interval / 10:
+        # 描画範囲を考慮したループ範囲の設定
+        tick_range = range(first_tick, actual_max_end + 1, tick_interval)
+
+        for tick_val in tick_range:
+            # 実際のデータ範囲外の目盛りは描画しない
+            if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
                 continue
 
             x = LEFT_MARGIN + (tick_val / shrink_factor + shift / shrink_factor) * scale
@@ -310,7 +329,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             if coordinate_mode == "absolute" and strand == '-':
                 display_tick_val = display_start - tick_val + 1
             else:
-                display_tick_val = display_start + tick_val - 1 if coordinate_mode == "absolute" else tick_val
+                display_tick_val = display_start + tick_val - 1
 
             if divisor == 1:
                 tick_label = f"{display_tick_val} {unit_label}"
@@ -647,7 +666,7 @@ def draw_multiple_gene_structures(
     # 全体の最小・最大座標を決定して位置を揃える
     global_min_start = min(g[1] for g in gene_data) if gene_data else 1
     global_max_end = max(g[2] for g in gene_data) if gene_data else 1
-    global_shift = -global_min_start if global_min_start < 0 else 0
+    global_shift = -global_min_start
 
     # Canvas幅を計算
     global_max_x = LEFT_MARGIN + label_width + (global_max_end / shrink_factor + global_shift / shrink_factor) * scale
@@ -669,12 +688,14 @@ def draw_multiple_gene_structures(
         range_bp = global_max_end - global_min_start
         if range_bp > 0:
             axis_y = top_margin - 25
-            axis_width = (range_bp / shrink_factor) * scale
             
+            x_axis_start = LEFT_MARGIN + label_width + (global_min_start / shrink_factor + global_shift / shrink_factor) * scale
+            x_axis_end = LEFT_MARGIN + label_width + (global_max_end / shrink_factor + global_shift / shrink_factor) * scale
+
             # 座標軸の線
             dwg.add(dwg.line(
-                start=(LEFT_MARGIN + label_width, axis_y),
-                end=(LEFT_MARGIN + label_width + axis_width, axis_y),
+                start=(x_axis_start, axis_y),
+                end=(x_axis_end, axis_y),
                 stroke='black',
                 stroke_width=1
             ))
@@ -685,12 +706,19 @@ def draw_multiple_gene_structures(
             # coordinate_mode に応じて開始座標を決定
             display_start = anchor if coordinate_mode == "absolute" else 0
             
-            # 0 または display_start を含めるために floor を使用
-            first_tick = (global_min_start // tick_interval) * tick_interval
+            # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
+            if coordinate_mode == "absolute" and strand == '-':
+                max_display_val = display_start - global_min_start + 1
+                first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
+                first_tick = display_start - first_tick_label + 1
+            else:
+                min_display_val = display_start + global_min_start - 1
+                first_tick_label = math.floor(min_display_val / tick_interval) * tick_interval
+                first_tick = first_tick_label - display_start + 1
             
             for tick_val in range(first_tick, global_max_end + 1, tick_interval):
-                # 描画範囲外の tick は描画しない（ただし、グローバル開始点付近は許容）
-                if tick_val < global_min_start - tick_interval / 10:
+                # 実際のデータ範囲外の目盛りは描画しない
+                if tick_val < global_min_start - 0.1 or tick_val > global_max_end + 0.1:
                     continue
 
                 x = LEFT_MARGIN + label_width + (tick_val / shrink_factor + global_shift / shrink_factor) * scale
@@ -707,7 +735,7 @@ def draw_multiple_gene_structures(
                 if coordinate_mode == "absolute" and strand == '-':
                     display_tick_val = display_start - tick_val + 1
                 else:
-                    display_tick_val = display_start + tick_val - 1 if coordinate_mode == "absolute" else tick_val
+                    display_tick_val = display_start + tick_val - 1
 
                 if divisor == 1:
                     tick_label = f"{display_tick_val} {unit_label}"
@@ -1130,13 +1158,13 @@ def draw_region_gene_structures(
 
     # 目盛りを描画
     tick_interval, unit_label, divisor = get_tick_params(draw_end - draw_start, shrink_factor, scale)
-    first_tick = (draw_start // tick_interval) * tick_interval
+    first_tick = math.floor(draw_start / tick_interval) * tick_interval
 
     for tick_pos in range(first_tick, draw_end + 1, tick_interval):
-        # 描画範囲外の tick は描画しない（ただし、draw_start 付近は許容）
-        if tick_pos < draw_start - tick_interval / 10:
+        # 描画範囲外の tick は描画しない
+        if tick_pos < draw_start - 0.1 or tick_pos > draw_end + 0.1:
             continue
-
+        
         x = LEFT_MARGIN + (tick_pos - draw_start) / shrink_factor * scale
 
         # 目盛り線
