@@ -543,17 +543,6 @@
           "gene_structure": {
             "$ref": "#/components/schemas/GeneStructureInfo"
           },
-          "label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label"
-          },
           "snps": {
             "items": {
               "$ref": "#/components/schemas/Snp"

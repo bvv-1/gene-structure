@@ -16,7 +16,6 @@ import type { Snp } from './snp';
  */
 export interface MultiGeneItem {
   gene_structure: GeneStructureInfo;
-  label?: string | null;
   snps?: Snp[];
   insertions?: Insertion[];
   deletion_regions?: Deletion[];
