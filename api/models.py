@@ -83,23 +83,44 @@ class GeneStructure:
         cds_end = max(c.end for c in cds_list)
 
         for exon in exons:
-            # 5' UTR: exon の開始から CDS の開始まで
-            if exon.start < cds_start and exon.end >= cds_start:
-                utr_end = min(exon.end, cds_start - 1)
-                if exon.start <= utr_end:
-                    self.features.append(GeneFeature(
-                        self.seqid, exon.start, utr_end,
-                        'five_prime_UTR', self.strand, {}
-                    ))
+            if self.strand == '-':
+                # マイナスストランド: 5' UTR は CDS より大きな座標、3' UTR は CDS より小さな座標
+                # 5' UTR: CDS の終了から exon の終了まで
+                if exon.end > cds_end and exon.start <= cds_end + 1:
+                    utr_start = max(exon.start, cds_end + 1)
+                    if utr_start <= exon.end:
+                        self.features.append(GeneFeature(
+                            self.seqid, utr_start, exon.end,
+                            'five_prime_UTR', self.strand, {}
+                        ))
 
-            # 3' UTR: CDS の終了から exon の終了まで
-            if exon.end > cds_end and exon.start <= cds_end:
-                utr_start = max(exon.start, cds_end + 1)
-                if utr_start <= exon.end:
-                    self.features.append(GeneFeature(
-                        self.seqid, utr_start, exon.end,
-                        'three_prime_UTR', self.strand, {}
-                    ))
+                # 3' UTR: exon の開始から CDS の開始まで
+                if exon.start < cds_start and exon.end >= cds_start - 1:
+                    utr_end = min(exon.end, cds_start - 1)
+                    if exon.start <= utr_end:
+                        self.features.append(GeneFeature(
+                            self.seqid, exon.start, utr_end,
+                            'three_prime_UTR', self.strand, {}
+                        ))
+            else:
+                # プラスストランド: 5' UTR は CDS より小さな座標、3' UTR は CDS より大きな座標
+                # 5' UTR: exon の開始から CDS の開始まで
+                if exon.start < cds_start and exon.end >= cds_start - 1:
+                    utr_end = min(exon.end, cds_start - 1)
+                    if exon.start <= utr_end:
+                        self.features.append(GeneFeature(
+                            self.seqid, exon.start, utr_end,
+                            'five_prime_UTR', self.strand, {}
+                        ))
+
+                # 3' UTR: CDS の終了から exon の終了まで
+                if exon.end > cds_end and exon.start <= cds_end + 1:
+                    utr_start = max(exon.start, cds_end + 1)
+                    if utr_start <= exon.end:
+                        self.features.append(GeneFeature(
+                            self.seqid, utr_start, exon.end,
+                            'three_prime_UTR', self.strand, {}
+                        ))
 
     def add_introns(self):
         # exon / CDS / UTR をまとめて処理
@@ -163,7 +184,7 @@ class GeneStructure:
     def update_features_with_deletions(self, deletion_regions: List[Deletion]):
         self.deletion_regions = deletion_regions
         new_features = []
-        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
+        structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron', 'domain'}
 
         # まずデリーション自体をフィーチャーとして追加
         for deletion in deletion_regions:
@@ -235,63 +256,116 @@ class GeneStructure:
             ]
 
     def to_relative(self):
-        # exon-like features including UTRs to find the real start
-        exon_like = [f for f in self.features if f.feature_type in ('exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR')]
-        if not exon_like:
+        # 基準（1番）を決定するためのフィーチャーを選択
+        # ユーザー要望により、Exon または CDS の開始位置を基準とする
+        anchor_targets = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
+        
+        # もし Exon/CDS がない場合は UTR を含めて探す（フォールバック）
+        if not anchor_targets:
+            anchor_targets = [f for f in self.features if f.feature_type in ('five_prime_UTR', 'three_prime_UTR')]
+        
+        # それでもない場合は全フィーチャーから探す
+        if not anchor_targets:
+            anchor_targets = self.features
+            
+        if not anchor_targets:
             return 0
 
-        anchor = min(exon_like, key=lambda f: f.start).start
+        # プラス鎖: 最小値が基準 (anchor)
+        # マイナス鎖: 最大値が基準 (anchor)
+        all_coords = []
+        for f in anchor_targets:
+            all_coords.append(f.start)
+            all_coords.append(f.end)
+        
+        if self.strand == '-':
+            anchor = max(all_coords)
+        else:
+            anchor = min(all_coords)
 
         # すべてのフィーチャー（イントロン、ドメイン、デリーション含む）をシフト
         for f in self.features:
-            f.start = f.start - anchor + 1
-            f.end = f.end - anchor + 1
+            if self.strand == '-':
+                s = anchor - f.start + 1
+                e = anchor - f.end + 1
+                f.start = min(s, e)
+                f.end = max(s, e)
+            else:
+                f.start = f.start - anchor + 1
+                f.end = f.end - anchor + 1
 
         # SNPと挿入も相対座標に変換
         if hasattr(self, 'snps') and self.snps:
             for i in range(len(self.snps)):
                 s = self.snps[i]
                 if hasattr(s, 'position'):
-                    s.position = s.position - anchor + 1
+                    if self.strand == '-':
+                        s.position = anchor - s.position + 1
+                    else:
+                        s.position = s.position - anchor + 1
                 else:
-                    self.snps[i] = s - anchor + 1
+                    if self.strand == '-':
+                        self.snps[i] = anchor - s + 1
+                    else:
+                        self.snps[i] = s - anchor + 1
         
         if hasattr(self, 'insertions') and self.insertions:
             for i in range(len(self.insertions)):
                 ins = self.insertions[i]
                 if hasattr(ins, 'position'):
-                    ins.position = ins.position - anchor + 1
+                    if self.strand == '-':
+                        ins.position = anchor - ins.position + 1
+                    else:
+                        ins.position = ins.position - anchor + 1
                 else:
-                    self.insertions[i] = ins - anchor + 1
+                    if self.strand == '-':
+                        self.insertions[i] = anchor - ins + 1
+                    else:
+                        self.insertions[i] = ins - anchor + 1
 
         # デリーション領域も相対座標に変換
         if hasattr(self, 'deletion_regions') and self.deletion_regions:
             for i in range(len(self.deletion_regions)):
                 d = self.deletion_regions[i]
-                if hasattr(d, 'start'):
-                    d.start = d.start - anchor + 1
-                    d.end = d.end - anchor + 1
-                else:
+                if isinstance(d, Deletion):
+                    s_orig, e_orig = d.start, d.end
+                    if self.strand == '-':
+                        s = anchor - s_orig + 1
+                        e = anchor - e_orig + 1
+                        d.start, d.end = min(s, e), max(s, e)
+                    else:
+                        d.start = s_orig - anchor + 1
+                        d.end = e_orig - anchor + 1
+                elif isinstance(d, dict):
                     # dict形式の場合（geneSTRUCTUREとの互換性用）
-                    self.deletion_regions[i]['start'] = d['start'] - anchor + 1
-                    self.deletion_regions[i]['end'] = d['end'] - anchor + 1
+                    s_orig, e_orig = d['start'], d['end']
+                    if self.strand == '-':
+                        s = anchor - s_orig + 1
+                        e = anchor - e_orig + 1
+                        d['start'], d['end'] = min(s, e), max(s, e)
+                    else:
+                        d['start'] = s_orig - anchor + 1
+                        d['end'] = e_orig - anchor + 1
 
         return 1
+
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
         """
-        アミノ酸座標（1-based）を基に、CDSからcDNA、そしてゲノム座標へと変換して
+        アミノ酸座標（1-based）を基に、CDSからcDNA、そして現在の座標系へと変換して
         ドメイン領域をfeaturesに追加する。
         """
         # アミノ酸座標 → cDNA 座標（1-based）
         cdna_start = (start_aa - 1) * 3 + 1
         cdna_end = end_aa * 3
 
-        # CDS features を取得してストランド順に並べ替え
+        # CDS features を取得
         cds_features = [f for f in self.features if f.feature_type == 'CDS']
-        if self.strand == '-':
-            cds_sorted = sorted(cds_features, key=lambda f: f.start)
-        else:
-            cds_sorted = sorted(cds_features, key=lambda f: f.start, reverse=True)
+        if not cds_features:
+            return
+
+        # すでに to_relative() が実行されている場合、
+        # プラス・マイナスに関わらず start が小さい順に並べれば 5' -> 3' になる
+        cds_sorted = sorted(cds_features, key=lambda f: f.start)
 
         current_cdna_pos = 1
 
@@ -312,13 +386,10 @@ class GeneStructure:
             offset_start = overlap_start - current_cdna_pos
             offset_end = overlap_end - current_cdna_pos
 
-            # ゲノム座標に変換
-            if self.strand == '-':
-                g_start = cds.start + offset_start
-                g_end = cds.start + offset_end
-            else:
-                g_end = cds.end - offset_start
-                g_start = cds.end - offset_end
+            # 現在の座標（相対座標化されていれば相対座標）で位置を決定
+            # 5'末端が常に start になっているため、プラス鎖と同じ計算式でOK
+            g_start = cds.start + offset_start
+            g_end = cds.start + offset_end
 
             # ドメイン色を取得（まだ割り当てられていなければパレットから自動割り当て）
             color = get_domain_color(domain_name, self.domain_color_map, DOMAIN_COLOR_PALETTE)
@@ -516,7 +587,6 @@ class GeneStructureRequest(BaseModel):
 class MultiGeneItem(BaseModel):
     """各トランスクリプトの構造とバリアント定義"""
     gene_structure: GeneStructureInfo
-    label: Optional[str] = None
     snps: List[Snp] = []
     insertions: List[Insertion] = []
     deletion_regions: List[Deletion] = []

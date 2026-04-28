@@ -255,32 +255,42 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
     gene.to_relative()
     all_features = gene.get_sorted_features()
-    
+
     # Calculate true extents including SNPs and Insertions
     actual_min_start, actual_max_end = gene.get_full_extent()
-        
     terminal_feature = get_terminal_feature(all_features)
-    max_end = actual_max_end / shrink_factor
 
-    shift = -actual_min_start
+    # 描画用にシフト (内部相対座標 1 を基準にする)
+    # 相対座標 1 が LEFT_MARGIN に来るように設定したいが、
+    # actual_min_start < 1 の場合に左側にはみ出さないようにマージンを調整する
+    drawing_anchor = 1
+    
+    # 実際に左側にはみ出す量（ピクセル）
+    left_overhang = 0
+    if actual_min_start < drawing_anchor:
+        left_overhang = (drawing_anchor - actual_min_start) / shrink_factor * scale
+    
+    # 全体の描画幅
+    range_bp = actual_max_end - actual_min_start
+    
+    canvas_width = LEFT_MARGIN + left_overhang + (range_bp / shrink_factor) * scale + extra_padding + 300
+    canvas_height = 400
 
-    canvas_width = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale + extra_padding + 300
-    canvas_height = 400  # 凡例と座標軸用のスペースを確保
-
-    # メモリ上にSVGを作成
     dwg = svgwrite.Drawing(size=(canvas_width, canvas_height))
     y_pos = 50
     height_feature = 15
-    max_x_coord = LEFT_MARGIN + (max_end + shift / shrink_factor) * scale
+    
+    # 描画座標計算用のベースオフセット
+    # x = LEFT_MARGIN + left_overhang + (pos - drawing_anchor) / shrink_factor * scale
+    base_x = LEFT_MARGIN + left_overhang
+    max_x_coord = base_x + (actual_max_end - drawing_anchor) / shrink_factor * scale
 
     # === 座標軸（スケールバー）の描画 ===
     axis_y = y_pos + height_feature + 40
-    range_bp = actual_max_end - actual_min_start
     if range_bp > 0:
-        x_axis_start = LEFT_MARGIN + (actual_min_start / shrink_factor + shift / shrink_factor) * scale
-        x_axis_end = LEFT_MARGIN + (actual_max_end / shrink_factor + shift / shrink_factor) * scale
+        x_axis_start = base_x + (actual_min_start - drawing_anchor) / shrink_factor * scale
+        x_axis_end = base_x + (actual_max_end - drawing_anchor) / shrink_factor * scale
         
-        # 座標軸の線
         dwg.add(dwg.line(
             start=(x_axis_start, axis_y),
             end=(x_axis_end, axis_y),
@@ -288,81 +298,46 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             stroke_width=1
         ))
 
-        # 目盛りの計算
         tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
+        display_start = anchor if coordinate_mode == "absolute" else 1
         
-        # coordinate_mode に応じて表示用の開始座標を決定
-        display_start = anchor if coordinate_mode == "absolute" else 0
-        
-        # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
         if coordinate_mode == "absolute" and strand == '-':
-            # マイナスストランドの場合、tick_val が増えると display_tick_val は減る
             max_display_val = display_start - actual_min_start + 1
             first_tick_label = math.floor(max_display_val / tick_interval) * tick_interval
             first_tick = display_start - first_tick_label + 1
-            tick_step = -tick_interval
         else:
             min_display_val = display_start + actual_min_start - 1
             first_tick_label = math.floor(min_display_val / tick_interval) * tick_interval
             first_tick = first_tick_label - display_start + 1
-            tick_step = tick_interval
         
-        # 描画範囲を考慮したループ範囲の設定
-        tick_range = range(first_tick, actual_max_end + 1, tick_interval)
-
-        for tick_val in tick_range:
-            # 実際のデータ範囲外の目盛りは描画しない
+        for tick_val in range(first_tick, actual_max_end + 1, tick_interval):
             if tick_val < actual_min_start - 0.1 or tick_val > actual_max_end + 0.1:
                 continue
 
-            x = LEFT_MARGIN + (tick_val / shrink_factor + shift / shrink_factor) * scale
-            
-            # 目盛り線
-            dwg.add(dwg.line(
-                start=(x, axis_y),
-                end=(x, axis_y + 5),
-                stroke='black',
-                stroke_width=1
-            ))
+            x = base_x + (tick_val - drawing_anchor) / shrink_factor * scale
+            dwg.add(dwg.line(start=(x, axis_y), end=(x, axis_y + 5), stroke='black', stroke_width=1))
 
-            # ラベル
             if coordinate_mode == "absolute" and strand == '-':
                 display_tick_val = display_start - tick_val + 1
             else:
                 display_tick_val = display_start + tick_val - 1
 
-            if divisor == 1:
-                tick_label = f"{display_tick_val} {unit_label}"
-            else:
-                tick_label = f"{display_tick_val // divisor} {unit_label}"
-            
-            dwg.add(dwg.text(
-                tick_label,
-                insert=(x, axis_y - 5),
-                font_size='9px',
-                fill='black',
-                text_anchor='middle'
-            ))
+            tick_label = f"{display_tick_val} {unit_label}" if divisor == 1 else f"{display_tick_val // divisor} {unit_label}"
+            dwg.add(dwg.text(tick_label, insert=(x, axis_y - 5), font_size='9px', fill='black', text_anchor='middle'))
 
-    # Draw baseline (intron style) in segments, skipping deletions
+    # Draw baseline
     baseline_segments = get_baseline_segments(actual_min_start, actual_max_end, getattr(gene, 'deletion_regions', []))
     y_line = y_pos + height_feature // 2
     for seg_start, seg_end in baseline_segments:
-        x_base_start = LEFT_MARGIN + (seg_start / shrink_factor + shift / shrink_factor) * scale
-        x_base_end = LEFT_MARGIN + (seg_end / shrink_factor + shift / shrink_factor) * scale
-        dwg.add(
-            dwg.line(
-                start=(x_base_start, y_line),
-                end=(x_base_end, y_line),
-                stroke=line_color,
-                stroke_width=FEATURE_OUTLINE_WIDTHS.get('intron', 1)
-            )
-        )
+        x_base_start = base_x + (seg_start - drawing_anchor) / shrink_factor * scale
+        x_base_end = base_x + (seg_end - drawing_anchor) / shrink_factor * scale
+        dwg.add(dwg.line(start=(x_base_start, y_line), end=(x_base_end, y_line), stroke=line_color, stroke_width=1))
 
     for feat in all_features:
-        x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
-        x_end = LEFT_MARGIN + (feat.end / shrink_factor + shift / shrink_factor) * scale
+        x_start = base_x + (feat.start - drawing_anchor) / shrink_factor * scale
+        x_end = base_x + (feat.end - drawing_anchor) / shrink_factor * scale
         width = x_end - x_start
+
 
         if feat.feature_type == 'domain':
             continue
@@ -451,7 +426,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             ins_length = 1
             ins_color = "black"
 
-        x = LEFT_MARGIN + (ins_pos / shrink_factor + shift / shrink_factor) * scale
+        x = base_x + (ins_pos - drawing_anchor) / shrink_factor * scale
         base_width = get_insertion_base_width(ins_length, shrink_factor, scale)
 
         dwg.add(
@@ -481,7 +456,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             snp_pos = snp
             snp_color = "black"
 
-        x = LEFT_MARGIN + (snp_pos / shrink_factor + shift / shrink_factor) * scale
+        x = base_x + (snp_pos - drawing_anchor) / shrink_factor * scale
         dwg.add(
             dwg.line(
                 start=(x, y_snp_top),
@@ -494,9 +469,10 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     # ドメインを描画（上層）
     for feat in all_features:
         if feat.feature_type == 'domain':
-            x_start = LEFT_MARGIN + (feat.start / shrink_factor + shift / shrink_factor) * scale
-            x_end = LEFT_MARGIN + (feat.end / shrink_factor + shift / shrink_factor) * scale
+            x_start = base_x + (feat.start - drawing_anchor) / shrink_factor * scale
+            x_end = base_x + (feat.end - drawing_anchor) / shrink_factor * scale
             width = x_end - x_start
+
 
             # ドメイン色はattributesから取得
             feat_domain_color = feat.attributes.get('color', domain_color)
@@ -704,7 +680,7 @@ def draw_multiple_gene_structures(
             tick_interval, unit_label, divisor = get_tick_params(range_bp, shrink_factor, scale)
             
             # coordinate_mode に応じて開始座標を決定
-            display_start = anchor if coordinate_mode == "absolute" else 0
+            display_start = anchor if coordinate_mode == "absolute" else 1
             
             # 良い感じの目盛り値を計算するために、表示値ベースで最初の目盛りを決定
             if coordinate_mode == "absolute" and strand == '-':
