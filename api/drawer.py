@@ -255,7 +255,11 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
     gene.to_relative()
     all_features = gene.get_sorted_features()
-    
+
+    # Calculate true extents including SNPs and Insertions
+    actual_min_start, actual_max_end = gene.get_full_extent()
+    terminal_feature = get_terminal_feature(all_features)
+
     # 描画用にシフト (内部相対座標 1 を基準にする)
     # 相対座標 1 が LEFT_MARGIN に来るように設定したいが、
     # actual_min_start < 1 の場合に左側にはみ出さないようにマージンを調整する
@@ -279,6 +283,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
     # 描画座標計算用のベースオフセット
     # x = LEFT_MARGIN + left_overhang + (pos - drawing_anchor) / shrink_factor * scale
     base_x = LEFT_MARGIN + left_overhang
+    max_x_coord = base_x + (actual_max_end - drawing_anchor) / shrink_factor * scale
 
     # === 座標軸（スケールバー）の描画 ===
     axis_y = y_pos + height_feature + 40
