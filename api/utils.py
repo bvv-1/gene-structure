@@ -15,27 +15,37 @@ def get_anchor_from_gene_info(gene_info: GeneStructureInfo) -> int:
     Returns:
         anchor座標（プラス鎖なら最小開始位置、マイナス鎖なら最大終了位置）
     """
-    all_coords = []
+    # 基準（1番）を決定するためのフィーチャーを選択
+    # ユーザー要望により、Exon または CDS の開始位置を基準とする
+    anchor_coords = []
     for exon in gene_info.exons:
-        all_coords.append(exon.start)
-        all_coords.append(exon.end)
+        anchor_coords.append(exon.start)
+        anchor_coords.append(exon.end)
     for cds in gene_info.cds:
-        all_coords.append(cds.start)
-        all_coords.append(cds.end)
-    for utr in gene_info.five_prime_utrs:
-        all_coords.append(utr.start)
-        all_coords.append(utr.end)
-    for utr in gene_info.three_prime_utrs:
-        all_coords.append(utr.start)
-        all_coords.append(utr.end)
+        anchor_coords.append(cds.start)
+        anchor_coords.append(cds.end)
+    
+    # もし Exon/CDS がない場合は UTR を含めて探す（フォールバック）
+    if not anchor_coords:
+        for utr in gene_info.five_prime_utrs:
+            anchor_coords.append(utr.start)
+            anchor_coords.append(utr.end)
+        for utr in gene_info.three_prime_utrs:
+            anchor_coords.append(utr.start)
+            anchor_coords.append(utr.end)
+    
+    # それでもない場合は全座標から探す（通常はないはずだが）
+    if not anchor_coords:
+        if gene_info.start is not None: anchor_coords.append(gene_info.start)
+        if gene_info.end is not None: anchor_coords.append(gene_info.end)
 
-    if not all_coords:
+    if not anchor_coords:
         return 0
     
     if gene_info.strand == '-':
-        return max(all_coords)
+        return max(anchor_coords)
     else:
-        return min(all_coords)
+        return min(anchor_coords)
 
 
 def convert_absolute_to_relative(
@@ -130,90 +140,50 @@ def build_gene_structure(gene_info: GeneStructureInfo) -> GeneStructure:
 
     # Exonを追加
     for exon in gene_info.exons:
-        if gene_info.strand == '-':
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                exon.end * -1,
-                exon.start * -1,
-                'exon',
-                gene_info.strand or "+",
-                {}
-            )
-        else:
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                exon.start,
-                exon.end,
-                'exon',
-                gene_info.strand or "+",
-                {}
-            )
+        feature = GeneFeature(
+            gene_info.seq_id or "",
+            exon.start,
+            exon.end,
+            'exon',
+            gene_info.strand or "+",
+            {}
+        )
         gene.add_feature(feature)
 
     # CDSを追加
     for cds in gene_info.cds:
-        if gene_info.strand == '-':
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                cds.end * -1,
-                cds.start * -1,
-                'CDS',
-                gene_info.strand or "+",
-                {}
-            )
-        else:
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                cds.start,
-                cds.end,
-                'CDS',
-                gene_info.strand or "+",
-                {}
-            )
+        feature = GeneFeature(
+            gene_info.seq_id or "",
+            cds.start,
+            cds.end,
+            'CDS',
+            gene_info.strand or "+",
+            {}
+        )
         gene.add_feature(feature)
 
     # 5' UTRを追加
     for utr in gene_info.five_prime_utrs:
-        if gene_info.strand == '-':
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                utr.end * -1,
-                utr.start * -1,
-                'five_prime_UTR',
-                gene_info.strand or "+",
-                {}
-            )
-        else:
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                utr.start,
-                utr.end,
-                'five_prime_UTR',
-                gene_info.strand or "+",
-                {}
-            )
+        feature = GeneFeature(
+            gene_info.seq_id or "",
+            utr.start,
+            utr.end,
+            'five_prime_UTR',
+            gene_info.strand or "+",
+            {}
+        )
         gene.add_feature(feature)
 
     # 3' UTRを追加
     for utr in gene_info.three_prime_utrs:
-        if gene_info.strand == '-':
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                utr.end * -1,
-                utr.start * -1,
-                'three_prime_UTR',
-                gene_info.strand or "+",
-                {}
-            )
-        else:
-            feature = GeneFeature(
-                gene_info.seq_id or "",
-                utr.start,
-                utr.end,
-                'three_prime_UTR',
-                gene_info.strand or "+",
-                {}
-            )
+        feature = GeneFeature(
+            gene_info.seq_id or "",
+            utr.start,
+            utr.end,
+            'three_prime_UTR',
+            gene_info.strand or "+",
+            {}
+        )
         gene.add_feature(feature)
 
     # 正規化（exon + CDS/UTR の重複を解消 + イントロン追加）
