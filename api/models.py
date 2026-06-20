@@ -33,6 +33,7 @@ class GeneStructure:
         self.snps: List[Snp] = []
         self.deletion_regions: List[Deletion] = []
         self.domain_color_map = {}
+        self.is_relative = False
 
     def add_insertions(self, insertions: List[Insertion]):
         """Insertionオブジェクトのリストを設定"""
@@ -256,6 +257,9 @@ class GeneStructure:
             ]
 
     def to_relative(self):
+        if self.is_relative:
+            return 1
+
         # 基準（1番）を決定するためのフィーチャーを選択
         # ユーザー要望により、Exon または CDS の開始位置を基準とする
         anchor_targets = [f for f in self.features if f.feature_type in ('exon', 'CDS')]
@@ -347,6 +351,7 @@ class GeneStructure:
                         d['start'] = s_orig - anchor + 1
                         d['end'] = e_orig - anchor + 1
 
+        self.is_relative = True
         return 1
 
     def add_domain_from_protein_coords(self, start_aa: int, end_aa: int, domain_name: str):
