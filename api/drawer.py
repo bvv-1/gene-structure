@@ -101,6 +101,25 @@ def get_baseline_segments(actual_min_start: int, actual_max_end: int, deletion_r
         
     return [s for s in segments if s[0] < s[1]]
 
+def get_structural_extent(gene: GeneStructure) -> tuple:
+    """
+    遺伝子本体を構成するフィーチャーだけから開始・終了座標を返す。
+    domain や variant は遺伝子外に置かれることがあるため、ベースラインの範囲には使わない。
+    """
+    structural_types = {'exon', 'CDS', 'five_prime_UTR', 'three_prime_UTR', 'intron'}
+    structural_features = [
+        f for f in gene.features
+        if f.feature_type in structural_types
+    ]
+
+    if not structural_features:
+        return gene.get_full_extent()
+
+    return (
+        min(f.start for f in structural_features),
+        max(f.end for f in structural_features),
+    )
+
 def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float = 2.0) -> tuple:
     """
     範囲サイズと物理的なスケールに応じて、重なり合わない適切な目盛り間隔と単位を返す
@@ -126,8 +145,8 @@ def get_tick_params(range_size: int, shrink_factor: float = 30.0, scale: float =
             break
     
     # 範囲に対して目盛りが少なすぎる（3個未満）場合は、一段階細かいステップを検討
-    # ただし、物理的な重なりを避けるため min_bp_step/2 までは許容する
-    if range_size / step < 2.5 and step / 2 >= min_bp_step / 2:
+    # ただし、ラベルの重なりを避けるため最小ピクセル間隔は下回らない
+    if range_size / step < 2.5 and step / 2 >= min_bp_step:
         if step == 10 * magnitude: step = 5 * magnitude
         elif step == 5 * magnitude: step = 2 * magnitude
         elif step == 2 * magnitude: step = 1 * magnitude
@@ -1181,12 +1200,13 @@ def draw_region_gene_structures(
         label = gene_info['label']
         actual_min_start = gene_info['start']
         actual_max_end = gene_info['end']
+        structural_start, structural_end = get_structural_extent(gene)
         all_features = gene.get_sorted_features()
         y_pos = top_margin + track_idx * (track_height + gene_spacing)
         terminal_feature = get_terminal_feature(all_features, gene.strand)
 
         # Draw baseline (intron style) in segments, skipping deletions
-        baseline_segments = get_baseline_segments(draw_start, draw_end, getattr(gene, 'deletion_regions', []))
+        baseline_segments = get_baseline_segments(structural_start, structural_end, getattr(gene, 'deletion_regions', []))
         y_line = y_pos + height_feature // 2
         for seg_start, seg_end in baseline_segments:
             x_base_start = LEFT_MARGIN + (seg_start - draw_start) / shrink_factor * scale
