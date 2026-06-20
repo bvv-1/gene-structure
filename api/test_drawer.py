@@ -1,12 +1,39 @@
 import unittest
+import re
 
 import svgwrite
 
-from api.drawer import draw_region_gene_structures, draw_terminal_feature, get_terminal_feature, get_tick_params
+from api.drawer import (
+    draw_gene_structure,
+    draw_multiple_gene_structures,
+    draw_region_gene_structures,
+    draw_terminal_feature,
+    get_terminal_feature,
+    get_tick_params,
+)
 from api.models import GeneFeature, GeneStructure
 
 
 class DrawerTest(unittest.TestCase):
+    def _minus_gene_with_two_cds(self):
+        gene = GeneStructure("minus", "chr1", "-")
+        gene.add_feature(GeneFeature("chr1", 100, 600, "CDS", "-"))
+        gene.add_feature(GeneFeature("chr1", 1000, 1500, "CDS", "-"))
+        return gene
+
+    def _first_polygon_points(self, svg):
+        match = re.search(r'<polygon\b[^>]*\bpoints="([^"]+)"', svg)
+        self.assertIsNotNone(match)
+        return [
+            tuple(float(coord) for coord in point.split(","))
+            for point in match.group(1).split()
+        ]
+
+    def _first_rect_x(self, svg):
+        match = re.search(r'<rect\b[^>]*\bx="([^"]+)"', svg)
+        self.assertIsNotNone(match)
+        return float(match.group(1))
+
     def test_get_terminal_feature_uses_rightmost_feature_on_plus_strand(self):
         features = [
             GeneFeature("chr1", 1, 100, "CDS", "+"),
@@ -51,6 +78,52 @@ class DrawerTest(unittest.TestCase):
         self.assertIn("120,10", svg)
         self.assertIn("120,25", svg)
         self.assertNotIn("120,17.5", svg)
+
+    def test_single_gene_minus_strand_draws_three_prime_terminal_arrow_on_right(self):
+        svg = draw_gene_structure(self._minus_gene_with_two_cds())
+
+        points = self._first_polygon_points(svg)
+        tip_x = points[2][0]
+
+        self.assertEqual(tip_x, max(x for x, _ in points))
+        self.assertGreater(min(x for x, _ in points), self._first_rect_x(svg))
+
+    def test_single_gene_pre_relative_minus_strand_still_draws_three_prime_arrow_on_right(self):
+        gene = self._minus_gene_with_two_cds()
+        gene.to_relative()
+
+        svg = draw_gene_structure(gene)
+
+        points = self._first_polygon_points(svg)
+        tip_x = points[2][0]
+
+        self.assertEqual(tip_x, max(x for x, _ in points))
+        self.assertGreater(min(x for x, _ in points), self._first_rect_x(svg))
+
+    def test_multiple_gene_minus_strand_draws_three_prime_terminal_arrow_on_right(self):
+        svg = draw_multiple_gene_structures(
+            [self._minus_gene_with_two_cds()],
+            ["minus"],
+        )
+
+        points = self._first_polygon_points(svg)
+        tip_x = points[2][0]
+
+        self.assertEqual(tip_x, max(x for x, _ in points))
+        self.assertGreater(min(x for x, _ in points), self._first_rect_x(svg))
+
+    def test_region_mode_minus_strand_keeps_left_pointing_arrow(self):
+        svg = draw_region_gene_structures(
+            genes=[self._minus_gene_with_two_cds()],
+            labels=["minus"],
+            region_start=1,
+            region_end=1600,
+        )
+
+        points = self._first_polygon_points(svg)
+        tip_x = points[2][0]
+
+        self.assertEqual(tip_x, min(x for x, _ in points))
 
     def test_get_tick_params_does_not_relax_below_minimum_label_spacing(self):
         tick_interval, unit_label, divisor = get_tick_params(

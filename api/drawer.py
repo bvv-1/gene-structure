@@ -309,8 +309,11 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
     # Calculate true extents including SNPs and Insertions
     actual_min_start, actual_max_end = gene.get_full_extent()
-    gene_strand = gene.strand or strand
-    terminal_feature = get_terminal_feature(all_features, gene_strand)
+    # region mode はゲノム座標上の strand 方向を維持する。
+    # それ以外では to_relative() で 5' -> 3' が左から右へ揃うため、
+    # 3' 側 terminal feature を右向き矢印として描画する。
+    arrow_strand = "+"
+    terminal_feature = get_terminal_feature(all_features, arrow_strand)
 
     # 描画用にシフト (内部相対座標 1 を基準にする)
     # 相対座標 1 が LEFT_MARGIN に来るように設定したいが、
@@ -428,7 +431,7 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
             if feat is terminal_feature:
                 draw_terminal_feature(
                     dwg, x_start, x_end, y_pos, height_feature, fill_color,
-                    stroke_color, outline_enabled, stroke_width, gene_strand
+                    stroke_color, outline_enabled, stroke_width, arrow_strand
                 )
             else:
                 dwg.add(
@@ -771,7 +774,11 @@ def draw_multiple_gene_structures(
     for idx, (gene, label) in enumerate(zip(genes, labels)):
         all_features, actual_min_start, actual_max_end = gene_data[idx]
         y_pos = top_margin + idx * (gene_height + gene_spacing)
-        terminal_feature = get_terminal_feature(all_features, gene.strand)
+        # region mode はゲノム座標上の strand 方向を維持する。
+        # それ以外では to_relative() で 5' -> 3' が左から右へ揃うため、
+        # 3' 側 terminal feature を右向き矢印として描画する。
+        arrow_strand = "+"
+        terminal_feature = get_terminal_feature(all_features, arrow_strand)
 
         # ラベルを描画
         if show_labels:
@@ -840,7 +847,7 @@ def draw_multiple_gene_structures(
                 if feat is terminal_feature:
                     draw_terminal_feature(
                         dwg, x_start, x_end, y_pos, height_feature, fill_color,
-                        stroke_color, outline_enabled, stroke_width, gene.strand
+                        stroke_color, outline_enabled, stroke_width, arrow_strand
                     )
                 else:
                     dwg.add(
