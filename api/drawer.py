@@ -229,9 +229,9 @@ def draw_scale_bar(dwg, x_pos: float, y_pos: float, scale_bar_bp: int,
 # 描画関数
 # =====================
 
-def get_terminal_feature(features):
+def get_terminal_feature(features, strand="+"):
     """
-    右端（最大 end）にある feature を返す。
+    遺伝子の終端にある feature を返す。
     優先順位: three_prime_UTR > CDS > exon
     """
     priority = ['three_prime_UTR', 'CDS', 'exon']
@@ -239,9 +239,41 @@ def get_terminal_feature(features):
     for ftype in priority:
         candidates = [f for f in features if f.feature_type == ftype]
         if candidates:
+            if strand == '-':
+                return min(candidates, key=lambda f: f.start)
             return max(candidates, key=lambda f: f.end)
 
     return None
+
+
+def draw_terminal_feature(dwg, x_start, x_end, y_pos, height_feature, fill_color,
+                          stroke_color, outline_enabled, stroke_width, strand="+"):
+    tip = min(height_feature // 2, abs(x_end - x_start))
+    if strand == '-':
+        points = [
+            (x_end, y_pos),
+            (x_start + tip, y_pos),
+            (x_start, y_pos + height_feature / 2),
+            (x_start + tip, y_pos + height_feature),
+            (x_end, y_pos + height_feature)
+        ]
+    else:
+        points = [
+            (x_start, y_pos),
+            (x_end - tip, y_pos),
+            (x_end, y_pos + height_feature / 2),
+            (x_end - tip, y_pos + height_feature),
+            (x_start, y_pos + height_feature)
+        ]
+
+    dwg.add(
+        dwg.polygon(
+            points=points,
+            fill=fill_color,
+            stroke=stroke_color if outline_enabled else 'none',
+            stroke_width=stroke_width
+        )
+    )
 
 
 def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_factor=30.0,
@@ -258,7 +290,8 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
     # Calculate true extents including SNPs and Insertions
     actual_min_start, actual_max_end = gene.get_full_extent()
-    terminal_feature = get_terminal_feature(all_features)
+    gene_strand = gene.strand or strand
+    terminal_feature = get_terminal_feature(all_features, gene_strand)
 
     # 描画用にシフト (内部相対座標 1 を基準にする)
     # 相対座標 1 が LEFT_MARGIN に来るように設定したいが、
@@ -374,20 +407,9 @@ def draw_gene_structure(gene: GeneStructure, scale=2, extra_padding=100, shrink_
 
             # Terminal Feature は矢印形状
             if feat is terminal_feature:
-                tip = height_feature // 2
-                dwg.add(
-                    dwg.polygon(
-                        points=[
-                            (x_start, y_pos),
-                            (x_end - tip, y_pos),
-                            (x_end, y_pos + height_feature / 2),
-                            (x_end - tip, y_pos + height_feature),
-                            (x_start, y_pos + height_feature)
-                        ],
-                        fill=fill_color,
-                        stroke=stroke_color if outline_enabled else 'none',
-                        stroke_width=stroke_width
-                    )
+                draw_terminal_feature(
+                    dwg, x_start, x_end, y_pos, height_feature, fill_color,
+                    stroke_color, outline_enabled, stroke_width, gene_strand
                 )
             else:
                 dwg.add(
@@ -730,7 +752,7 @@ def draw_multiple_gene_structures(
     for idx, (gene, label) in enumerate(zip(genes, labels)):
         all_features, actual_min_start, actual_max_end = gene_data[idx]
         y_pos = top_margin + idx * (gene_height + gene_spacing)
-        terminal_feature = get_terminal_feature(all_features)
+        terminal_feature = get_terminal_feature(all_features, gene.strand)
 
         # ラベルを描画
         if show_labels:
@@ -797,20 +819,9 @@ def draw_multiple_gene_structures(
 
                 # Terminal Feature は矢印形状
                 if feat is terminal_feature:
-                    tip = height_feature // 2
-                    dwg.add(
-                        dwg.polygon(
-                            points=[
-                                (x_start, y_pos),
-                                (x_end - tip, y_pos),
-                                (x_end, y_pos + height_feature / 2),
-                                (x_end - tip, y_pos + height_feature),
-                                (x_start, y_pos + height_feature)
-                            ],
-                            fill=fill_color,
-                            stroke=stroke_color if outline_enabled else 'none',
-                            stroke_width=stroke_width
-                        )
+                    draw_terminal_feature(
+                        dwg, x_start, x_end, y_pos, height_feature, fill_color,
+                        stroke_color, outline_enabled, stroke_width, gene.strand
                     )
                 else:
                     dwg.add(
@@ -1172,7 +1183,7 @@ def draw_region_gene_structures(
         actual_max_end = gene_info['end']
         all_features = gene.get_sorted_features()
         y_pos = top_margin + track_idx * (track_height + gene_spacing)
-        terminal_feature = get_terminal_feature(all_features)
+        terminal_feature = get_terminal_feature(all_features, gene.strand)
 
         # Draw baseline (intron style) in segments, skipping deletions
         baseline_segments = get_baseline_segments(draw_start, draw_end, getattr(gene, 'deletion_regions', []))
@@ -1235,20 +1246,9 @@ def draw_region_gene_structures(
 
                 # Terminal Feature は矢印形状
                 if feat is terminal_feature:
-                    tip = height_feature // 2
-                    dwg.add(
-                        dwg.polygon(
-                            points=[
-                                (x_start, y_pos),
-                                (x_end - tip, y_pos),
-                                (x_end, y_pos + height_feature / 2),
-                                (x_end - tip, y_pos + height_feature),
-                                (x_start, y_pos + height_feature)
-                            ],
-                            fill=fill_color,
-                            stroke=stroke_color if outline_enabled else 'none',
-                            stroke_width=stroke_width
-                        )
+                    draw_terminal_feature(
+                        dwg, x_start, x_end, y_pos, height_feature, fill_color,
+                        stroke_color, outline_enabled, stroke_width, gene.strand
                     )
                 else:
                     dwg.add(
