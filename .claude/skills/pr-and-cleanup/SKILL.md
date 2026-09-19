@@ -51,7 +51,3 @@ bash pr_and_cleanup.sh --draft
 - worktreeディレクトリ内で実行すること
 - すべての変更がコミット済みであること
 - `gh` CLI がインストール・認証済みであること
-
-## 関連スキル
-
-- `create-worktree`: worktree作成

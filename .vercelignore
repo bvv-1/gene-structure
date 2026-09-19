@@ -1,1 +1,5 @@
 /geneSTRUCTURE_v2
+
+.venv/
+venv/
+.pytest_cache/

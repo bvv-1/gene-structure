@@ -2,19 +2,22 @@
   "name": "nextjs-fastapi",
   "version": "0.2.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
-    "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn api.index:app --reload",
+    "fastapi-dev": "uv run --locked uvicorn api.index:app --reload",
     "next-dev": "next dev",
-    "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
-    "build": "npm run generate:api && next build",
+    "dev": "concurrently \"node --run next-dev\" \"node --run fastapi-dev\"",
+    "build": "node --run generate:api && next build",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "review:svg": "if [ -x venv/bin/python ]; then venv/bin/python scripts/generate_svg_visual_review.py; else python3 scripts/generate_svg_visual_review.py; fi",
+    "review:svg": "uv run --locked python scripts/generate_svg_visual_review.py",
     "fmt": "biome check --write ./app",
     "ts": "tsc --noEmit",
     "generate:api": "orval",
-    "fetch:openapi": "python3 scripts/export_openapi.py"
+    "fetch:openapi": "uv run --locked python scripts/export_openapi.py"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -27,23 +27,18 @@ https://gene-structure.vercel.app/
 
 ### Requirements
 
-- Node.js 22.14.0 (version managed with mise)
-- Python 3.12 or higher
+- Node.js 24.x (version managed with mise)
+- Python 3.12 (pinned in `.python-version`; uv can install it automatically)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.12.17 (version managed with mise; also pinned in CI)
 
 ### Setup
 
-First, create and activate a virtual environment:
+Install dependencies (uv creates `.venv` automatically):
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-Next, install dependencies:
-
-```bash
+mise install
 npm install
-pip install -r requirements.txt
+uv sync --locked
 ```
 
 Then, start the development server:
@@ -57,11 +52,16 @@ Open http://localhost:3000 in your browser to view the application.
 ### Running FastAPI Server Only
 
 ```bash
-source venv/bin/activate
-python3 -m uvicorn api.index:app --reload --host 127.0.0.1 --port 8000
+uv run --locked uvicorn api.index:app --reload --host 127.0.0.1 --port 8000
 ```
 You can check API documentation here:
 http://127.0.0.1:8000/api/py/docs
+
+### Python dependency management and deployment
+
+Use `uv add <package>` for runtime dependencies and `uv add --dev <package>` for development tools. Commit both `pyproject.toml` and `uv.lock` after dependency changes. To update locked versions, run `uv lock --upgrade` and verify the tests.
+
+Local commands and CI use `--locked` to detect an outdated lockfile. Vercel's [Python runtime](https://vercel.com/docs/functions/runtimes/python) supports `pyproject.toml` and `uv.lock`; the existing `@vercel/python` build uses these files for the backend. Python is constrained to 3.12 to match the existing dependencies and CI. For a runtime-only environment, use `uv sync --locked --no-dev`.
 
 ## Usage
 
@@ -103,8 +103,7 @@ curl -X POST "http://127.0.0.1:8000/api/py/generate-gene-structure-svg"   -H "Co
 Running `api/original.py` directly, you can draw gene structures from CLI.
 
 ```bash
-source venv/bin/activate
-python3 api/original.py
+uv run --locked python api/original.py
 ```
 Parameters are defined inside api/original.py
 
@@ -146,7 +145,9 @@ You can get `{transcript_id}_with_relative_deletions.svg` as output file.
 │   └── gff3/
 │       └── IRGSP-1.0_representative/
 │           └── transcripts.gff
-├── requirements.txt         # Python dependencies
+├── pyproject.toml           # Python dependencies and development tools
+├── uv.lock                  # Locked Python dependencies
+├── .python-version          # Python version
 ├── package.json             # Node.js dependencies
 ├── tsconfig.json            # TypeScript config
 ├── biome.json               # Formatter / linter
@@ -181,6 +182,9 @@ You can get `{transcript_id}_with_relative_deletions.svg` as output file.
 ## Testing
 
 ```bash
+# backend test
+uv run --locked python -m pytest
+
 # frontend test
 npm run test
 
