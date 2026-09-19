@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - 'api/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.python-version'
+      - 'scripts/export_openapi.py'
+      - '.github/workflows/generate-api-types.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,25 +26,31 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version-file: '.python-version'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9
+        with:
+          version: "0.12.17"
+          enable-cache: true
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: uv sync --locked --no-dev
 
       - name: Export OpenAPI schema
-        run: python scripts/export_openapi.py
+        run: uv run --locked --no-dev python scripts/export_openapi.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.14.0'
+          node-version: '24.x'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Generate API types from OpenAPI
-        run: npm run generate:api
+        run: node --run generate:api
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v4
