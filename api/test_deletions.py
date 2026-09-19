@@ -21,7 +21,7 @@ def test_update_features_with_deletions_all_types():
     # Overlaps with:
     # - exon 100-500 -> truncate to 100-199 and 241-500
     # - CDS 200-300 -> truncate to 241-300 (200-240 is deleted)
-    # - Domain1 150-250 -> Should be REMOVED (or truncated? user says "other elements...hide")
+    # - Domain1 150-250 -> split around the deletion, preserving both remaining parts
     # - SNP at 220 -> Should be REMOVED
     # - Insertion at 230 -> Should be REMOVED
     
@@ -42,9 +42,11 @@ def test_update_features_with_deletions_all_types():
     assert len(cdss) == 1
     assert (cdss[0].start, cdss[0].end) == (241, 300)
     
-    # Verify Annotational Features (Removed according to my interpretation of "表示を消す")
+    # Verify annotational features are split in the same way as structural features
     domains = [f for f in gene.features if f.feature_type == 'domain']
-    assert len(domains) == 0, f"Expected domain to be removed, but got {domains}"
+    assert len(domains) == 2
+    assert [(f.start, f.end) for f in domains] == [(150, 199), (241, 250)]
+    assert all(f.attributes == {"name": "Domain1", "color": "green"} for f in domains)
     
     # Verify Point Features (Removed)
     assert len(gene.snps) == 0, f"Expected SNP to be removed, but got {gene.snps}"
