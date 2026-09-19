@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Asia/Tokyo",
+  "schedule": [
+    "before 5am on monday"
+  ],
+  "dependencyDashboard": true,
+  "labels": [
+    "dependencies"
+  ]
+}
