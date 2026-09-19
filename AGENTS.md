@@ -15,8 +15,7 @@ npm run dev
 # フロントエンドのみ
 npm run next-dev
 
-# バックエンドのみ（要venv有効化）
-source venv/bin/activate
+# バックエンドのみ（uvが仮想環境を自動管理）
 npm run fastapi-dev
 
 # ビルド・テスト・フォーマット
@@ -67,8 +66,8 @@ npm run fetch:openapi # FastAPIからOpenAPIスキーマをエクスポート
 
 ## 環境設定
 
-- Node.js: 22.14.0（mise管理）
-- Python: 3.12+（venv使用）
+- Node.js: 24.x（mise管理）
+- Python: 3.12（uv使用、pyproject.toml / uv.lockで依存管理）
 - フォーマッター: Biome（インデント: スペース2、クォート: ダブル）
 - APIドキュメント: http://127.0.0.1:8000/api/py/docs
 
@@ -101,11 +100,9 @@ lsof -i :8000
 kill -9 <PID>
 ```
 
-### venvが見つからない
+### Python依存関係のセットアップ
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+uv sync --locked
 ```
 
 ### OpenAPI型が古い
