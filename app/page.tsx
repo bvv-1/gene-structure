@@ -861,7 +861,7 @@ export default function Home() {
             Preview
           </Title>
 
-          <Grid gutter="md" mb="8">
+          <Grid gap="md" mb="8">
             <Grid.Col span={8}>
               <Card shadow="xl" radius="md">
                 <SvgViewer svgUrl={svgData?.url} />
