@@ -6,7 +6,7 @@ dependencies = [
     "fastapi==0.141.1",
     "uvicorn[standard]==0.53.0",
     "reportlab==5.0.1",
-    "numpy==1.26.4",
+    "numpy==2.5.3",
     "python-multipart==0.0.32",
     "pydantic==2.13.5",
     "svgwrite==1.4.3",
