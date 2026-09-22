@@ -42,7 +42,7 @@
     "react-svg-pan-zoom": "^3.13.1",
     "swr": "^2.3.3",
     "typescript": "5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
