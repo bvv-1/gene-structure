@@ -5,7 +5,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi==0.141.1",
     "uvicorn[standard]==0.53.0",
-    "reportlab==4.0.9",
+    "reportlab==4.5.1",
     "numpy==1.26.4",
     "python-multipart==0.0.32",
     "pydantic==2.13.5",
