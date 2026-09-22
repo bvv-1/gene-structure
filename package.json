@@ -30,7 +30,7 @@
     "@mantine/hooks": "^8.3.6",
     "@mantine/notifications": "^8.3.6",
     "@tabler/icons-react": "^3.35.0",
-    "autoprefixer": "10.4.20",
+    "autoprefixer": "10.6.1",
     "boxicons": "^2.1.4",
     "browserslist": "^4.28.9",
     "concurrently": "^9.2.3",
