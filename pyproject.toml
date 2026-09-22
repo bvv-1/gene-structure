@@ -3,7 +3,7 @@ name = "gene-structure"
 version = "0.2.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "fastapi==0.115.0",
+    "fastapi==0.141.1",
     "uvicorn[standard]==0.30.6",
     "reportlab==4.0.9",
     "numpy==1.26.4",
