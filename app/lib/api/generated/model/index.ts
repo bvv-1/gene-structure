@@ -23,3 +23,4 @@ export * from './proteinDomain';
 export * from './regionGeneStructureRequest';
 export * from './snp';
 export * from './validationError';
+export * from './validationErrorCtx';
