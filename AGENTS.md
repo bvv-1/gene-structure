@@ -84,7 +84,6 @@ npm run fetch:openapi # FastAPIからOpenAPIスキーマをエクスポート
 ### バックエンド
 - FastAPI
 - svgwrite（SVG生成）
-- reportlab（PDF生成）
 - Pydantic（バリデーション）
 
 ## トラブルシューティング
