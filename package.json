@@ -54,7 +54,6 @@
   },
   "overrides": {
     "esbuild": ">=0.28.1",
-    "js-yaml": "5.4.2",
     "postcss": "$postcss",
     "rollup": ">=4.59.0"
   }
