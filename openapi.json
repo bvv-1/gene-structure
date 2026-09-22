@@ -334,6 +334,7 @@
           "attributes": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -372,6 +373,7 @@
           },
           "domains": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -448,6 +450,7 @@
           },
           "domains": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -479,11 +482,7 @@
             "default": []
           },
           "coordinate_mode": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CoordinateMode"
-              }
-            ],
+            "$ref": "#/components/schemas/CoordinateMode",
             "default": "relative"
           }
         },
@@ -569,6 +568,7 @@
           },
           "domains": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -624,11 +624,7 @@
             "default": 10
           },
           "coordinate_mode": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CoordinateMode"
-              }
-            ],
+            "$ref": "#/components/schemas/CoordinateMode",
             "default": "relative"
           }
         },
