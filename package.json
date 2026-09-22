@@ -41,7 +41,7 @@
     "react-dom": "^19.0.0",
     "react-svg-pan-zoom": "^3.13.1",
     "swr": "^2.3.3",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "^5.0.0"
   },
   "devDependencies": {
