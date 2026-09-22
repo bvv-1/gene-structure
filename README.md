@@ -170,7 +170,6 @@ You can get `{transcript_id}_with_relative_deletions.svg` as output file.
 - FastAPI
 - Python 3.12
 - svgwrite (SVG generation)
-- reportlab (PDF generation)
 - Pydantic (validation)
 
 ### Development Tools
