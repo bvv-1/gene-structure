@@ -1,7 +1,13 @@
 "use client";
 
-import { ActionIcon, Anchor, AppShell, Container, Group } from "@mantine/core";
-import { MantineProvider } from "@mantine/core";
+import {
+  ActionIcon,
+  Anchor,
+  AppShell,
+  Container,
+  Group,
+  MantineProvider,
+} from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import { Notifications } from "@mantine/notifications";

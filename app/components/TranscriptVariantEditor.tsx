@@ -2,7 +2,6 @@
 
 import {
   Accordion,
-  Box,
   Button,
   ColorInput,
   Divider,

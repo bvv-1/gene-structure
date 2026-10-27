@@ -117,9 +117,9 @@ export default function SvgViewer({
       detectAutoPan={false}
       background="#ffffff"
     >
-      {/* biome-ignore lint/a11y/noSvgWithoutTitle: <explanation> */}
+      {/* biome-ignore lint/a11y/noSvgWithoutTitle: The SVG is a preview of the generated gene structure. */}
       <svg width={width} height={height}>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation> */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Render the SVG markup returned by the gene structure API. */}
         <g dangerouslySetInnerHTML={{ __html: svgContent }} />
       </svg>
     </ReactSVGPanZoom>
