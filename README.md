@@ -28,7 +28,7 @@ https://gene-structure.vercel.app/
 ### Requirements
 
 - Node.js 24.x (version managed with mise)
-- Python 3.12 (pinned in `.python-version`; uv can install it automatically)
+- Python 3.14 (pinned in `.python-version`; uv can install it automatically)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.12.17 (version managed with mise; also pinned in CI)
 
 ### Setup
@@ -61,7 +61,7 @@ http://127.0.0.1:8000/api/py/docs
 
 Use `uv add <package>` for runtime dependencies and `uv add --dev <package>` for development tools. Commit both `pyproject.toml` and `uv.lock` after dependency changes. To update locked versions, run `uv lock --upgrade` and verify the tests.
 
-Local commands and CI use `--locked` to detect an outdated lockfile. Vercel's [Python runtime](https://vercel.com/docs/functions/runtimes/python) supports `pyproject.toml` and `uv.lock`; the existing `@vercel/python` build uses these files for the backend. Python is constrained to 3.12 to match the existing dependencies and CI. For a runtime-only environment, use `uv sync --locked --no-dev`.
+Local commands and CI use `--locked` to detect an outdated lockfile. Vercel's [Python runtime](https://vercel.com/docs/functions/runtimes/python) supports `pyproject.toml` and `uv.lock`; the existing `@vercel/python` build uses these files for the backend. Python is constrained to 3.14 to match the Vercel runtime, local development, and CI. Renovate limits Python updates to `<3.15`; raise this limit in `renovate.json` when Vercel supports Python 3.15. For a runtime-only environment, use `uv sync --locked --no-dev`.
 
 ## Usage
 
