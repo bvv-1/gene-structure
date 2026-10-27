@@ -1,7 +1,7 @@
 [project]
 name = "gene-structure"
 version = "0.2.0"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.15,<3.16"
 dependencies = [
     "fastapi==0.162.0",
     "uvicorn[standard]==0.54.0",
