@@ -791,7 +791,7 @@ def draw_multiple_gene_structures(
             ))
 
         # Draw baseline (intron style) in segments, skipping deletions
-        baseline_segments = get_baseline_segments(global_min_start, global_max_end, getattr(gene, 'deletion_regions', []))
+        baseline_segments = get_baseline_segments(actual_min_start, actual_max_end, getattr(gene, 'deletion_regions', []))
         y_line = y_pos + height_feature // 2
         for seg_start, seg_end in baseline_segments:
             x_base_start = LEFT_MARGIN + label_width + (seg_start / shrink_factor + global_shift / shrink_factor) * scale
