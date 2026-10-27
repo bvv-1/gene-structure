@@ -8,7 +8,6 @@ import {
   Grid,
   Group,
   Modal,
-  NumberInput,
   ScrollArea,
   SegmentedControl,
   Select,
@@ -46,15 +45,8 @@ import {
   type MultiGeneItem as ApiMultiGeneItem,
   type MultiGeneStructureRequest as ApiMultiGeneStructureRequest,
   CoordinateMode,
-  type GeneStructureRequest,
-  type GenerateSvgBlobError,
-  type HTTPValidationError,
-  generateGeneStructureSvgBlob,
   useListGffs,
 } from "./lib/api";
-import { type GeneStructureInfo, filterByRegion, getSeqIds } from "./utils/gff";
-import { parseFile, parseFileContent } from "./utils/gtf";
-
 import type {
   DeletionRegionInput,
   InsertionInput,
@@ -62,6 +54,8 @@ import type {
   SelectedTranscriptItem,
   SnpInput,
 } from "./types/variant";
+import { filterByRegion, type GeneStructureInfo, getSeqIds } from "./utils/gff";
+import { parseFile, parseFileContent } from "./utils/gtf";
 
 type UIState = "upload" | "select" | "preview";
 
@@ -182,47 +176,6 @@ const postRegionFetcher = async (data: RegionGeneStructureRequest | null) => {
   return { blob, url: window.URL.createObjectURL(blob) };
 };
 
-const postFetcher = async (data: GeneStructureRequest | null) => {
-  if (!data) {
-    throw new Error("No data provided");
-  }
-
-  try {
-    const result = await generateGeneStructureSvgBlob(data);
-    return { blob: result.blob, url: window.URL.createObjectURL(result.blob) };
-  } catch (error) {
-    const apiError = error as GenerateSvgBlobError;
-
-    if (apiError.status === 422) {
-      const errorData = apiError.data as HTTPValidationError;
-      if (errorData.detail && Array.isArray(errorData.detail)) {
-        const errorMessages = errorData.detail
-          .map((err) => {
-            const field = err.loc?.join(".") || "unknown";
-            return `${field}: ${err.msg}`;
-          })
-          .join("\n");
-
-        notifications.show({
-          title: "Validation Error",
-          message: errorMessages,
-          color: "red",
-          autoClose: 10000,
-        });
-        throw new Error("Validation error");
-      }
-    }
-
-    notifications.show({
-      title: "Error",
-      message: `API error: ${apiError.status}`,
-      color: "red",
-      autoClose: 5000,
-    });
-    throw new Error(`API error: ${apiError.status}`);
-  }
-};
-
 export default function Home() {
   const [uiState, setUiState] = useState<UIState>("upload");
   const [isLoading, setIsLoading] = useState(false);
@@ -275,8 +228,8 @@ export default function Home() {
     if (!regionFilter.seqId || !regionFilter.start || !regionFilter.end) {
       return [];
     }
-    const start = Number.parseInt(regionFilter.start);
-    const end = Number.parseInt(regionFilter.end);
+    const start = Number.parseInt(regionFilter.start, 10);
+    const end = Number.parseInt(regionFilter.end, 10);
     if (Number.isNaN(start) || Number.isNaN(end) || start >= end) {
       return [];
     }
@@ -496,8 +449,8 @@ export default function Home() {
         insertions: validInsertions,
         protein_domains: validProteinDomains,
       })) as ApiGeneStructureInfo[],
-      region_start: Number.parseInt(regionFilter.start),
-      region_end: Number.parseInt(regionFilter.end),
+      region_start: Number.parseInt(regionFilter.start, 10),
+      region_end: Number.parseInt(regionFilter.end, 10),
       show_labels: showLabels,
       gene_spacing: geneSpacing,
       label_spacing: labelSpacing,
@@ -555,7 +508,7 @@ export default function Home() {
       await mutateSVG();
     } catch (error) {
       console.error("Error generating SVG:", error);
-      // postFetcherで既にtoast表示しているので、ここでは表示しない
+      // 各fetcherで既にtoast表示しているので、ここでは表示しない
     } finally {
       setIsLoading(false);
     }

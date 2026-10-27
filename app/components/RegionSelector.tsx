@@ -24,8 +24,8 @@ export function RegionSelector({
   matchCount,
   maxSelection = 30,
 }: RegionSelectorProps) {
-  const startNum = Number.parseInt(regionFilter.start) || 0;
-  const endNum = Number.parseInt(regionFilter.end) || 0;
+  const startNum = Number.parseInt(regionFilter.start, 10) || 0;
+  const endNum = Number.parseInt(regionFilter.end, 10) || 0;
   const isValidRange = startNum > 0 && endNum > 0 && startNum < endNum;
   const isOverLimit = matchCount > maxSelection;
 
@@ -47,7 +47,9 @@ export function RegionSelector({
         <NumberInput
           label="Start"
           placeholder="Start position"
-          value={regionFilter.start ? Number.parseInt(regionFilter.start) : ""}
+          value={
+            regionFilter.start ? Number.parseInt(regionFilter.start, 10) : ""
+          }
           onChange={(value) =>
             onFilterChange({ ...regionFilter, start: String(value || "") })
           }
@@ -58,7 +60,7 @@ export function RegionSelector({
         <NumberInput
           label="End"
           placeholder="End position"
-          value={regionFilter.end ? Number.parseInt(regionFilter.end) : ""}
+          value={regionFilter.end ? Number.parseInt(regionFilter.end, 10) : ""}
           onChange={(value) =>
             onFilterChange({ ...regionFilter, end: String(value || "") })
           }

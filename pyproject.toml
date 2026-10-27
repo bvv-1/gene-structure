@@ -3,9 +3,9 @@ name = "gene-structure"
 version = "0.2.0"
 requires-python = ">=3.14,<3.15"
 dependencies = [
-    "fastapi==0.141.1",
-    "uvicorn[standard]==0.53.0",
-    "pydantic==2.13.5",
+    "fastapi==0.162.0",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.14.1",
     "svgwrite==1.4.3",
 ]
 

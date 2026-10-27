@@ -1,5 +1,3 @@
-import type { GeneStructureInfo as ApiGeneStructureInfo } from "../lib/api";
-
 export type InsertionInput = {
   id: string;
   position: number | undefined;
